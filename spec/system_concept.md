@@ -106,3 +106,5 @@ The following aspects require formal specification during the next SDD milestone
 1. Exact mathematical formulation of the **Virality Velocity Score (VVS)** (linear vs exponential decay weighting).
 2. Data collection legal and technical boundaries (unofficial endpoints vs third-party scraping APIs vs TikTok Research API).
 3. Metric retention policies and time-series database selection (e.g., TimescaleDB, ClickHouse, or SQLite for initial prototype).
+4. **Issue REQ-L2-01 (Identified via GIT-GATE-01)**: Definition of minimum baseline threshold parameters (view/creation floor) required before an item is eligible for velocity scoring, suppressing statistical noise on micro-samples.
+5. **Issue REQ-L2-02 (Identified via GIT-GATE-01)**: Formal definition of multi-tier sliding windows (1h, 6h, 24h) and weights for composite virality acceleration index.
