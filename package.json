@@ -1,0 +1,21 @@
+{
+  "name": "trendtok-analytics",
+  "version": "0.1.0",
+  "description": "TikTok Viral Content Analytics Web Service",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "keywords": [
+    "tiktok",
+    "analytics",
+    "virality",
+    "trends",
+    "sdd",
+    "nodejs"
+  ],
+  "author": "Kiziaka05 <lisakkosta37@gmail.com>",
+  "license": "ISC"
+}
