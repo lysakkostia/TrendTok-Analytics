@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TrendTok Analytics - Asynchronous Web Service Entrypoint
  * 
  * Implements SRS v2.0 REST Endpoints & In-Memory TTL Storage
@@ -65,6 +65,26 @@ export function createServer() {
     const method = req.method;
 
     try {
+      // 0. API Discovery & Root Index
+      if (method === "GET" && url.pathname === "/") {
+        return sendJson(res, 200, {
+          service: "TrendTok Analytics",
+          version: "2.0.0",
+          specification: "SRS-TRENDTOK-2026-V2",
+          description: "Real-Time TikTok Viral Content Intelligence Web Service",
+          author: "Lysak Kostiantyn (KN-32)",
+          endpoints: {
+            "GET /": "API index & catalog",
+            "GET /api/health": "Health telemetry & uptime",
+            "GET /api/trends": "All tracked trends (supports ?type=sound|hashtag)",
+            "GET /api/trends/emerging": "Emerging viral trends (VVS >= 50, acceleration > 0)",
+            "GET /api/trends/:id/correlations": "Sound + hashtag co-occurrence correlations",
+            "POST /api/snapshots": "Ingest metric snapshots",
+            "POST /api/simulation/seed": "Seed Golden Set test data"
+          }
+        });
+      }
+
       // 1. Health Endpoint (REQ-FR-01 / Telemetry)
       if (method === "GET" && (url.pathname === "/health" || url.pathname === "/api/health")) {
         return sendJson(res, 200, {

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { createServer } from "../src/index.js";
@@ -46,6 +46,14 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
 
   t.after(() => {
     return new Promise(resolve => testServer.close(resolve));
+  });
+
+  await t.test("GET / returns API discovery catalog and metadata", async () => {
+    const res = await makeRequest("/");
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.service, "TrendTok Analytics");
+    assert.equal(res.body.specification, "SRS-TRENDTOK-2026-V2");
+    assert.ok(res.body.endpoints["GET /api/trends"]);
   });
 
   await t.test("GET /api/health returns valid telemetry and spec version", async () => {
