@@ -100,11 +100,12 @@ The system operates across four primary conceptual subsystems:
 
 ---
 
-## 6. Open Issues & Input for Lab #2 (SKED Dialogue & SRS)
+## 6. Open Issues & Resolution Status (SDD Baseline v2.0)
 
-The following aspects require formal specification during the next SDD milestone:
-1. Exact mathematical formulation of the **Virality Velocity Score (VVS)** (linear vs exponential decay weighting).
-2. Data collection legal and technical boundaries (unofficial endpoints vs third-party scraping APIs vs TikTok Research API).
-3. Metric retention policies and time-series database selection (e.g., TimescaleDB, ClickHouse, or SQLite for initial prototype).
-4. **Issue REQ-L2-01 (Identified via GIT-GATE-01)**: Definition of minimum baseline threshold parameters (view/creation floor) required before an item is eligible for velocity scoring, suppressing statistical noise on micro-samples.
-5. **Issue REQ-L2-02 (Identified via GIT-GATE-01)**: Formal definition of multi-tier sliding windows (1h, 6h, 24h) and weights for composite virality acceleration index.
+All issues identified during Phase 1 have been formally resolved during the Laboratory Work #2 SKED dialogue and codified into [`spec/srs.md`](srs.md):
+1. **Virality Velocity Score (VVS) formulation**: RESOLVED in `srs.md` Section 3.1 (`REQ-F-003`) and Addendum A (weighted multi-window model: $0.50 \cdot V_{1\text{h}} + 0.35 \cdot V_{6\text{h}} + 0.15 \cdot V_{24\text{h}}$).
+2. **Data ingestion boundaries**: RESOLVED in `srs.md` Section 1.2 and Section 3.1 (`REQ-F-001`, `REQ-F-007`) via batch REST ingestion (`POST /api/snapshots`) and deterministic Golden Set simulation.
+3. **Metric retention & persistence**: RESOLVED in `srs.md` Section 2.3 and Section 3.2 (`REQ-NF-002`) via in-memory 24-hour circular rolling buffer with TTL eviction.
+4. **Issue REQ-L2-01 (Noise Guardrail)**: RESOLVED in `srs.md` Section 3.1 (`REQ-F-002`) via entity-differentiated thresholds (Sound: 15k views, 30 delta; Hashtag: 25k views, 100 delta).
+5. **Issue REQ-L2-02 (Multi-tier sliding windows)**: RESOLVED in `srs.md` Section 3.1 (`REQ-F-003`) and Addendum A.
+6. **Approval & Gate**: Formally audited and frozen under [`logs/spec_gate_decision.md`](../logs/spec_gate_decision.md) (`SPEC-GATE-01`).

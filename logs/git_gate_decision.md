@@ -44,8 +44,9 @@ According to SDD principles, merge conflicts **must not** be resolved based on a
 
 ---
 
-## 4. Identified Specification Gap for Lab #2 (SKED Dialogue)
+## 4. Identified Specification Gap for Lab #2 (SKED Dialogue) — RESOLVED
 
-The conflict revealed that `spec/system_concept.md` lacks exact numerical parameters for noise suppression on nascent trends. This has been logged as an open requirement for Laboratory Work #2:
-* **Requirement Issue #REQ-L2-01**: Define precise minimum view and video thresholds before a `TrendItem` enters the active velocity calculation pipeline.
-* **Requirement Issue #REQ-L2-02**: Establish mathematical decay factors for older snapshots in multi-tier sliding time windows (1h, 6h, 24h).
+The conflict revealed that `spec/system_concept.md` lacked exact numerical parameters for noise suppression on nascent trends. Both requirements have been formally closed during Laboratory Work #2:
+* **Requirement Issue #REQ-L2-01**: CLOSED in `spec/srs.md` Section 3.1 (`REQ-F-002`) via differentiated Noise Guardrails (Sound: 15k views, 30 delta; Hashtag: 25k views, 100 delta).
+* **Requirement Issue #REQ-L2-02**: CLOSED in `spec/srs.md` Section 3.1 (`REQ-F-003`) & Addendum A via multi-window weighting ($0.50 \cdot V_{1\text{h}} + 0.35 \cdot V_{6\text{h}} + 0.15 \cdot V_{24\text{h}}$).
+* **Formal Gate Closure**: Verified and audited under [`logs/spec_gate_decision.md`](spec_gate_decision.md) (`SPEC-GATE-01`).
