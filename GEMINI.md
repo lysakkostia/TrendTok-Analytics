@@ -99,3 +99,14 @@ Before completing any task or proposing a commit:
 2. Verify that any newly introduced code has corresponding test coverage.
 3. Check that changes do not violate or contradict documents in `/spec`.
 4. Ensure `git status` reflects only intended, clean modifications.
+
+---
+
+## 7. Laboratory Report Formatting Conventions (.docx)
+
+* **Font**: Strictly `Times New Roman`, 14 pt base size across the entire document.
+* **Line Spacing**: Exactly `1.5` (`line_spacing = 1.5`).
+* **Text Styles**: Bold (`run.bold = True`) is permitted for headings, labels, and accents; **Italics (`italic = True`) are strictly prohibited** throughout the entire document.
+* **No Raw Markdown Artifacts**: Never leave raw markdown characters (`**`, `*`, `` ` ``, `$`, `\cdot`) in the `.docx`. All formatting must be converted to native Word attributes.
+* **Title Page**: Never include a course lecturer/docent. Only student credentials (IV course, Group KN-32, Lysak Kostiantyn), project topic, and KPI university header.
+
