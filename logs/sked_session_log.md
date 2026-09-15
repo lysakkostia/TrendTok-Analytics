@@ -1,10 +1,10 @@
-﻿# SKED Dialogue Protocol & Session Log (Lab #2)
+# SKED Dialogue Protocol & Session Log (Lab #2)
 
 **Session Identifier:** `SKED-SESSION-02`  
 **Target Repository:** `TrendTok Analytics`  
 **Date:** 2026-09-15  
 **Participants:**
-* **Human-Initiator ($H$):** Lysak Kostiantyn (IV course, Group KN-42)
+* **Human-Initiator ($H$):** Lysak Kostiantyn (IV course, Group KN-32)
 * **AI Spec Analyst ($M$):** Google Antigravity (Gemini 3.8 Flash High)
 **Methodology:** Socratic Knowledge Elicitation & Documentation (SKED)  
 **Status:** Converged ($\delta < \epsilon$) & Approved  

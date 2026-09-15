@@ -1,4 +1,4 @@
-﻿# Software Requirements Specification (SRS)
+# Software Requirements Specification (SRS)
 ## TrendTok Analytics — Real-Time Viral Content Intelligence Web Service
 
 **Document Identifier:** `SRS-TRENDTOK-2026-V2`  
@@ -6,7 +6,7 @@
 **Document Status:** Approved Baseline (SDD Phase 2 / Post-SKED Convergence)  
 **Standard Compliance:** IEEE Std 830-1998 / ISO/IEC/IEEE 29148:2018  
 **Repository Path:** `TrendTok Analytics/spec/srs.md`  
-**Author:** Lysak Kostiantyn (Group KN-42) & Antigravity AI (Spec Analyst)  
+**Author:** Lysak Kostiantyn (Group KN-32) & Antigravity AI (Spec Analyst)  
 **Date:** 2026-09-15  
 
 ---
