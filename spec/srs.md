@@ -108,7 +108,7 @@ TrendTok Analytics operates as a standalone analytical microservice within the m
 #### REQ-FR-03: Multi-Window Virality Velocity Scoring (Resolving REQ-L2-02)
 * **Description**: The system shall compute a composite Virality Velocity Score ($\text{VVS}$) normalized to the range $[0.0..100.0]$ using weighted sliding windows.
 * **Mathematical Contract**:
-  $$\text{VVS} = \min\left(100.0, \; 0.50 \cdot V_{1\text{h}} + 0.35 \cdot V_{6\text{h}} + 0.15 \cdot V_{24\text{h}}\right)$$
+  $$\text{VVS} = \min\left(100.0, 0.50 \cdot V_{1\text{h}} + 0.35 \cdot V_{6\text{h}} + 0.15 \cdot V_{24\text{h}}\right)$$
   where each window velocity $V_{\Delta t}$ is normalized by the canonical ceiling parameter ($K_{\text{norm}}(\text{sound}) = 200.0\text{ videos/hr}, K_{\text{norm}}(\text{hashtag}) = 500.0\text{ videos/hr}$).
 * **Acceptance Criteria**:
   1. When historical snapshots for 6h or 24h are not yet accumulated, the engine must gracefully fall back to available window weights proportionally normalized to sum to 1.0.
@@ -178,11 +178,11 @@ $$\Delta \text{videos}_{\Delta t} = \text{videoCount}(t) - \text{videoCount}(t -
 Raw hourly velocity:
 $$v_{\Delta t} = \frac{\max(0, \Delta \text{videos}_{\Delta t})}{\Delta t}$$
 
-Normalized window velocity index $V_{\Delta t} \in [0..100]$:
-$$V_{\Delta t} = \min\left(100.0, \; \frac{v_{\Delta t}}{K_{\text{norm}}(\text{type})} \times 100.0\right)$$
+Normalized window velocity index $V_{\Delta t} \in [0, 100]$:
+$$V_{\Delta t} = \min\left(100.0, \frac{v_{\Delta t}}{K_{\text{norm}}(\text{type})} \times 100.0\right)$$
 
 where scaling normalizer:
-$$K_{\text{norm}}(\text{sound}) = 200.0 \text{ new videos/hr}, \quad K_{\text{norm}}(\text{hashtag}) = 500.0 \text{ new videos/hr}$$
+$$K_{\text{norm}}(\text{sound}) = 200.0\text{ new videos/hr}, \quad K_{\text{norm}}(\text{hashtag}) = 500.0\text{ new videos/hr}$$
 
 Composite Weighted Virality Velocity Score:
 $$\text{VVS} = 0.50 \cdot V_{1\text{h}} + 0.35 \cdot V_{6\text{h}} + 0.15 \cdot V_{24\text{h}}$$
