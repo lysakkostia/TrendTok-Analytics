@@ -44,6 +44,53 @@ To eliminate semantic divergence between human developers, testing suites, and A
 | **`TrendLifecycleStatus`** | State Enum | Discrete stage of virality: `NOISE`, `EMERGING`, `VIRAL`, `SATURATED`, `DECAYING`. |
 | **`GoldenSet`** | Test Artifact | Predefined, deterministic series of snapshots used as an oracle to assert calculation accuracy. |
 
+### 1.4 Specification-Driven Development (SDD) Protocol & Operational Workflow
+
+This specification is designed for autonomous ingestion by both human engineers and AI coding agents. To guarantee full reproducibility of the system purely from this specification within an LLM context window, development must adhere strictly to the **Specification-Driven Development (SDD)** lifecycle:
+
+```
+[ Phase 1: SPEC ] ──▶ [ Phase 2: TEST ] ──▶ [ Phase 3: CODE ] ──▶ [ Phase 4: GATE ]
+  (/spec/*.md)          (/tests/*.test.js)      (/src/*.js)             (/logs/*_gate_*.md)
+```
+
+1. **Phase 1: Specification (`/spec`)**:
+   * The specification is the **Single Source of Truth (SSOT)**.
+   * No production code or tests may be synthesized without an explicit, approved requirement clause (`REQ-FR-*` or `REQ-NFR-*`).
+   * The agent is strictly prohibited from inventing tacit business logic or unconstrained formulas.
+2. **Phase 2: Test Definition (`/tests`)**:
+   * Test-First Principle: Before modifying or adding code in `src/`, automated tests encoding the specification clauses must be authored in `tests/`.
+   * Tests must cover standard operating paths as well as edge cases (division by zero, missing snapshots, negative counts).
+3. **Phase 3: Implementation (`/src`)**:
+   * Code in `src/` must be the minimal, pure, deterministic implementation necessary to satisfy the tests.
+   * Strict adherence to project architecture: Node.js ES Modules, pure algorithmic functions, zero heavyweight runtime dependencies.
+4. **Phase 4: Gate Audit & Verification (`/logs`)**:
+   * Prior to merging, the full suite must pass (`node --test tests/**/*.test.js`).
+   * Conflicts are audited against `/spec` and documented in `/logs/*_gate_decision.md`.
+
+#### Repository Directory Taxonomy:
+* `/spec` — Authoritative requirements, domain glossary (`glossary.md`), mathematical models, and Requirements Traceability Matrix (`traceability_matrix.md`).
+* `/src` — Production source code (`index.js` HTTP server, `trendScorer.js` analytical calculus).
+* `/tests` — Automated verification suites executed by native Node test runner (`trendScorer.test.js`, `api.test.js`).
+* `/logs` — Audit trail: SKED elicitation transcripts (`sked_session_log.md`), gate decisions (`spec_gate_decision.md`, `git_gate_decision.md`), and agent operational profiles (`agent_profile.md`).
+* `/docs` — Supplementary architectural blueprints and guidelines.
+
+#### Semantic Commit Message Convention:
+Every Git commit must carry a semantic prefix identifying the affected SDD artifact:
+
+| Prefix | Artifact Category | Purpose & Scope | Example |
+|---|---|---|---|
+| `spec:` | Requirements & Models | Modifications or baseline approvals in `/spec` | `spec: define multi-window VVS calculus in srs.md` |
+| `test:` | Verification Suites | New or updated test fixtures and assertions in `/tests` | `test: add noise guardrail threshold unit tests` |
+| `feat:` | Production Code | Functional implementations in `/src` | `feat: implement pure VVS trendScorer engine` |
+| `gate:` | Quality Checkpoints | Formal gate audit records and conflict resolutions in `/logs` | `gate: approve SPEC-GATE-01 baseline specification` |
+| `docs:` | Documentation | Guidelines, README, and course reports | `docs: update academic lab report structure` |
+| `fix:` / `refactor:` | Defect Fixes / Code Clean | Non-functional refactoring or bugfixes | `refactor: clean up KaTeX math delimiters in spec` |
+
+#### Git Branching Strategy:
+* `main` — Authoritative branch containing validated specifications, green test suites, and audited code.
+* `feat/*` or `agent/*` — Isolated branches for agentic synthesis and incremental feature development.
+* `human/*` — Branches for human developer experiments and exploratory validation.
+
 ---
 
 ## 2. Overall Description
@@ -83,6 +130,15 @@ TrendTok Analytics operates as a standalone analytical microservice within the m
 * **Dependency Minimization**: Zero bulky external computation frameworks. Core analytics implemented as side-effect-free pure functions.
 * **Testing**: Native Node.js test runner (`node:test`, `node:assert/strict`).
 * **Persistence**: Pure in-memory sliding window cache with 24-hour time-to-live (TTL) pruning.
+
+### 2.4 Agentic System Reproduction & Execution Directives
+When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only this SRS in its context, the agent must observe the following operational invariants:
+1. **Context-Driven Autonomy**: All domain models, mathematical equations, validation thresholds, and API contracts are fully self-contained within Sections 3, 4, and Addenda of this document. No external or tacit knowledge is required.
+2. **Deterministic Pure Calculus**: All scoring logic (`calculateViralityScore`, `calculateMultiWindowVVS`, `checkNoiseGuardrail`) must reside in `src/trendScorer.js` as pure functions without mutable globals or side effects.
+3. **Fail-Fast Schema Guardrails**: Incoming payloads at `POST /api/snapshots` must validate `itemId`, `totalViews`, `totalVideos`, and timestamps before memory ingestion. Malformed requests must immediately return HTTP 400.
+4. **Execution & Verification Protocol**:
+   * Launch service: `node src/index.js`
+   * Execute full verification suite: `node --test tests/**/*.test.js`
 
 ---
 
@@ -233,3 +289,20 @@ Feature: Saturation Detection
     Then the trend lifecycle status transitions to "SATURATED"
     And the item is excluded from the "EMERGING" leaderboard query
 ```
+
+### Addendum D: SDD Quality Gates & Conflict Resolution Protocol (SPEC-GATE / GIT-GATE)
+
+#### D.1 Definition of Done (DoD)
+A feature or requirement is formally considered DONE if and only if:
+1. **100% Contract Traceability**: The requirement is mapped in `spec/traceability_matrix.md` with explicit links to tests and code symbols.
+2. **Automated Verification**: Every acceptance criterion is validated by passing unit/integration tests (`node --test`).
+3. **Purity & JSDoc**: Exported functions include comprehensive JSDoc annotations detailing parameter types and return contracts.
+4. **Zero Regressions**: Running the entire test suite exhibits 0 failures and 0 skipped tests.
+
+#### D.2 Gate Resolution Policy (Human vs. Agent Conflicts)
+If a divergence occurs during branch merges or between human edits and agent-generated artifacts:
+1. **Specification as Arbiter**: The approved specification in `spec/srs.md` (branch `main`) is the sole evaluation authority. Neither human nor AI edits receive preference based on author role or commit timestamps.
+2. **Contract Alignment**: If one implementation complies with the mathematical contract in SRS and the other deviates, the compliant version is retained.
+3. **Gap Handling**: If both implementations uncover an ambiguous edge case not covered by the SRS, the discrepancy is classified as an **Unresolved Requirement Gap** (`REQ-GAP-*`), temporarily frozen, and resolved via formal addendum during the next SKED iteration.
+4. **Formal Gate Logging**: Every checkpoint decision must be documented in `/logs/git_gate_decision.md` or `/logs/spec_gate_decision.md`.
+
