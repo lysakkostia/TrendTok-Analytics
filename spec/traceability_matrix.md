@@ -32,14 +32,17 @@ In accordance with **Specification-Driven Development (SDD)**, every production 
 | **Memory bounding & rolling buffer** | `REQ-NFR-02` (24h TTL Pruning) | Memory buffer eviction check | `test/storage: ttl-pruning-sliding-window` | `src/index.js` (In-Memory Ring Store) | **VERIFIED (PASS)** |
 | **Visual intelligence & real-time dashboard** | `REQ-FR-08` (Interactive Web Dashboard) | Contract: `GET /`, `GET /dashboard.css`, `GET /dashboard.js` | `test/api: ui-dashboard-serving` | `src/public/index.html`, `src/public/dashboard.css`, `src/public/dashboard.js`, `src/index.js` | **VERIFIED (PASS)** |
 | **Interactive simulation & time control** | `REQ-FR-09` (Simulation & Time-Step Controller) | Contract: `POST /api/simulation/step`, `POST /api/simulation/inject` | `test/api: simulation-step-controller` | `src/index.js` (`handleSimulationStep`, `handleSimulationInject`) | **VERIFIED (PASS)** |
+| **Live external TikTok feed ingestion** | `REQ-FR-10` (Pluggable Feed Ingestion Engine) | Contract: `POST /api/ingest/fetch` | `test/api: live-feed-ingestion` | `src/ingestionClient.js`, `src/index.js` | **IN PROGRESS** |
+| **Predictive trajectory & saturation calculus** | `REQ-FR-11` (Predictive Trajectory & Saturation) | Mathematical assertion on saturation hours | `test/trendScorer: saturation-prediction` | `src/trendScorer.js` (`predictSaturationWindow`) | **IN PROGRESS** |
 
 ---
 
 ## 3. Coverage Analysis Summary
 
-* **Total Functional Requirements (FR):** 9
+* **Total Functional Requirements (FR):** 11
 * **Total Non-Functional Requirements (NFR):** 4
-* **Requirements with Automated Test Coverage:** 13 / 13 (100% targeted)
+* **Requirements with Automated Test Coverage:** 15 / 15 (100% targeted)
 * **Orphaned Requirements:** 0
 * **Unjustified Code Modules:** 0
+
 

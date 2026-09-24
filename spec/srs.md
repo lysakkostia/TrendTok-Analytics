@@ -219,6 +219,27 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   2. `POST /api/simulation/inject` allows injecting custom anomaly scenarios (e.g. explosive viral sound spike or low-volume micro-sample noise).
   3. Endpoints return HTTP 200 OK with the updated simulated state count and timestamp.
 
+#### REQ-FR-10: Pluggable External Feed Ingestion Engine
+* **Description**: The system shall support fetching and normalizing live external TikTok trending music and hashtag metrics through an extensible provider adapter interface.
+* **Endpoint**: `POST /api/ingest/fetch`
+* **Query Parameters**: `?provider=creative_center|mock|rapidapi` (defaults to `creative_center` with graceful fallback to `mock`).
+* **Acceptance Criteria**:
+  1. Implements provider strategy pattern (`CreativeCenterProvider`, `MockProvider`, `RapidApiProvider`).
+  2. Normalizes external raw entity payloads into canonical `MetricSnapshot` format (mapping title, author, views, creations, timestamp).
+  3. Returns HTTP 200 OK with ingested item count and provider identifier.
+
+#### REQ-FR-11: Predictive Trajectory & Saturation Calculus
+* **Description**: The system shall forecast trend saturation horizon ($\Delta t_{\text{saturation}}$) and compute a Creator Opportunity Window based on first and second derivatives of adoption.
+* **Mathematical Contract**:
+  $$\Delta t_{\text{saturation}} = \begin{cases} 
+  \max\left(1.0, \frac{K_{\text{norm}}(\text{type}) - V_{1\text{h}}}{\max(0.1, a)}\right) & \text{if } a > 0 \text{ and } V_{1\text{h}} < K_{\text{norm}} \\
+  0.0 & \text{if } V_{1\text{h}} \ge K_{\text{norm}} \text{ or } a \le 0 
+  \end{cases}$$
+* **Acceptance Criteria**:
+  1. Pure deterministic function in `src/trendScorer.js` returning `{ hoursToPeak, opportunityWindow, opportunityLevel }`.
+  2. Opportunity levels categorized as `SURGING` (high opportunity), `PEAK` (saturated soon), or `PLATEAU` (decaying).
+  3. Exposed on trends query endpoints (`/api/trends`) and rendered on the client dashboard.
+
 ---
 
 ### 3.2 Non-Functional Requirements (NFR)
