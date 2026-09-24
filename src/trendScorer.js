@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TrendTok Analytics - Virality Velocity Scoring & Lifecycle Module
  * 
  * Implements SRS v2.0 (SRS-TRENDTOK-2026-V2) Section 3.1 & Addenda A, B.
@@ -182,3 +182,46 @@ export function calculateViralityScore(metrics = {}) {
   const normalizedScore = Math.min(100.0, Math.max(0.0, velocity / 50.0));
   return Number(normalizedScore.toFixed(2));
 }
+
+/**
+ * Predicts the trajectory saturation horizon and creator opportunity window (REQ-FR-11).
+ * 
+ * @param {Object} params
+ * @param {number} [params.velocity1h=0] - Current video velocity in videos/hour
+ * @param {number} [params.acceleration=0] - Second derivative / rate of velocity change
+ * @param {string} [params.type='sound'] - Entity type ('sound' | 'hashtag')
+ * @returns {{ hoursToPeak: number, opportunityLevel: 'SURGING' | 'PEAK' | 'PLATEAU', opportunityWindow: string }}
+ */
+export function predictSaturationWindow({ velocity1h = 0, acceleration = 0, type = "sound" } = {}) {
+  const ceiling = NORM_CEILINGS[type] || NORM_CEILINGS.default;
+  const v = Math.max(0, Number(velocity1h) || 0);
+  const a = Number(acceleration) || 0;
+
+  if (v >= ceiling) {
+    return {
+      hoursToPeak: 0.0,
+      opportunityLevel: "PEAK",
+      opportunityWindow: "Peak Saturation: Exponential adoption ceiling reached"
+    };
+  }
+
+  if (a <= 0) {
+    return {
+      hoursToPeak: 0.0,
+      opportunityLevel: "PLATEAU",
+      opportunityWindow: "Plateau: Adoption velocity is flat or decelerating"
+    };
+  }
+
+  // Active surge: compute delta time to saturation ceiling
+  const rawHours = (ceiling - v) / Math.max(0.1, a);
+  const hoursToPeak = Number(Math.max(0.5, rawHours).toFixed(1));
+  const formattedHours = hoursToPeak.toFixed(1);
+
+  return {
+    hoursToPeak,
+    opportunityLevel: "SURGING",
+    opportunityWindow: `Surging: ~${formattedHours}h remaining before saturation ceiling`
+  };
+}
+

@@ -42,6 +42,7 @@ function setupEventListeners() {
   drawerBackdrop?.addEventListener("click", closeDrawer);
 
   // Simulation Actions
+  document.getElementById("btn-fetch-live")?.addEventListener("click", handleFetchLive);
   document.getElementById("btn-seed")?.addEventListener("click", handleSeed);
   document.getElementById("btn-quick-seed")?.addEventListener("click", handleSeed);
   document.getElementById("btn-step")?.addEventListener("click", handleStep);
@@ -248,6 +249,21 @@ function renderTable() {
     const accel = item.acceleration !== undefined ? `${item.acceleration > 0 ? "+" : ""}${Number(item.acceleration).toFixed(1)}` : "—";
     const sparkline = renderSparklineSvg(item.historyDeltas || [0, Math.round(item.vvs)]);
 
+    const pred = item.saturationPrediction || {
+      opportunityLevel: "PLATEAU",
+      hoursToPeak: 0,
+      opportunityWindow: "Plateau: Adoption velocity is flat or decelerating"
+    };
+
+    let horizonBadge = "";
+    if (pred.opportunityLevel === "SURGING") {
+      horizonBadge = `<span class="badge-mini" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;" title="${escapeHtml(pred.opportunityWindow)}">⚡ Surging (~${pred.hoursToPeak}h)</span>`;
+    } else if (pred.opportunityLevel === "PEAK") {
+      horizonBadge = `<span class="badge-mini" style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a;" title="${escapeHtml(pred.opportunityWindow)}">🔥 Peak Reached</span>`;
+    } else {
+      horizonBadge = `<span class="badge-mini" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;" title="${escapeHtml(pred.opportunityWindow)}">⏸ Plateaued</span>`;
+    }
+
     return `
       <tr data-id="${escapeHtml(item.id)}">
         <td class="rank-cell ${rankClass}">#${rank}</td>
@@ -268,14 +284,19 @@ function renderTable() {
             </div>
           </div>
         </td>
-        <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">
-          +${hourlyVelocity} <span style="font-size: 11px; color: var(--text-muted);">v/hr</span>
-        </td>
-        <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600; color: ${item.acceleration > 0 ? "#059669" : "var(--text-muted)"};">
-          ${accel}
+        <td>
+          <div style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+            +${hourlyVelocity} <span style="font-size: 11px; color: var(--text-muted);">v/hr</span>
+          </div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: ${item.acceleration > 0 ? "#059669" : "var(--text-muted)"};">
+            acc: ${accel}
+          </div>
         </td>
         <td>
           <span class="status-pill status-${status}">${escapeHtml(status)}</span>
+        </td>
+        <td>
+          ${horizonBadge}
         </td>
         <td>
           ${sparkline}
@@ -397,6 +418,37 @@ async function inspectCorrelations(soundId) {
 
   } catch (err) {
     panel.innerHTML = `<div class="empty-placeholder" style="color: var(--accent-magenta);">${err.message}</div>`;
+  }
+}
+
+/**
+ * Ingests trending items from live external TikTok feeds (REQ-FR-10).
+ */
+async function handleFetchLive() {
+  const btn = document.getElementById("btn-fetch-live");
+  const origHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Ingesting Live Feed...`;
+  }
+  try {
+    const res = await fetch("/api/ingest/fetch?provider=creative_center", {
+      method: "POST"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      await loadDashboard();
+      showToast(`Live TikTok feed ingested! (${data.ingestedCount} trends from ${data.provider})`);
+    } else {
+      showToast(`Ingestion error: ${data.message || data.error}`);
+    }
+  } catch (err) {
+    showToast(`Network error ingesting feed: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml || `<span>🌐</span> Fetch Live TikTok Feed`;
+    }
   }
 }
 

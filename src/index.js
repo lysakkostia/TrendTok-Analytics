@@ -12,8 +12,10 @@ import { fileURLToPath } from "node:url";
 import {
   checkNoiseGuardrail,
   calculateMultiWindowVVS,
-  determineLifecycleStatus
+  determineLifecycleStatus,
+  predictSaturationWindow
 } from "./trendScorer.js";
+import { fetchExternalTrendingFeed } from "./ingestionClient.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,7 +94,7 @@ export function createServer() {
           // Otherwise return API discovery catalog (backward-compatible)
           return sendJson(res, 200, {
             service: "TrendTok Analytics",
-            version: "2.1.0",
+            version: "2.2.0",
             specification: "SRS-TRENDTOK-2026-V2",
             description: "Real-Time TikTok Viral Content Intelligence Web Service",
             author: "Lysak Kostiantyn (KN-32)",
@@ -105,7 +107,8 @@ export function createServer() {
               "POST /api/snapshots": "Ingest metric snapshots",
               "POST /api/simulation/seed": "Seed Golden Set test data",
               "POST /api/simulation/step": "Advance simulation time by 1 hour",
-              "POST /api/simulation/inject": "Inject anomaly spike (viral or noise)"
+              "POST /api/simulation/inject": "Inject anomaly spike (viral or noise)",
+              "POST /api/ingest/fetch": "Live external TikTok feed ingestion adapter"
             }
           });
         }
@@ -134,7 +137,7 @@ export function createServer() {
         return sendJson(res, 200, {
           status: "ok",
           service: "TrendTok Analytics",
-          version: "2.1.0",
+          version: "2.2.0",
           specification: "SRS-TRENDTOK-2026-V2",
           trackedItems: memoryStore.size,
           uptime: process.uptime()
@@ -301,6 +304,13 @@ export function createServer() {
             historyDeltas.push(Math.max(0, sn[i].totalVideos - sn[i - 1].totalVideos));
           }
 
+          // Compute saturation horizon and opportunity window (REQ-FR-11)
+          const saturationPrediction = predictSaturationWindow({
+            velocity1h: delta1h,
+            acceleration,
+            type: entry.item.type
+          });
+
           list.push({
             id: entry.item.id,
             type: entry.item.type,
@@ -309,6 +319,7 @@ export function createServer() {
             status,
             hourlyVelocity: delta1h,
             acceleration,
+            saturationPrediction,
             totalViews: latest.totalViews,
             snapshotsCount: sn.length,
             historyDeltas: historyDeltas.slice(-12)
@@ -491,6 +502,69 @@ export function createServer() {
         return sendJson(res, 201, {
           status: "injected",
           item: { id, type: payload.type || "sound", title: payload.title || id }
+        });
+      }
+
+      // ==========================================
+      // Live External Feed Ingestion Engine (REQ-FR-10)
+      // ==========================================
+      if (method === "POST" && url.pathname === "/api/ingest/fetch") {
+        const providerQuery = url.searchParams.get("provider") || "creative_center";
+        const { provider, records } = await fetchExternalTrendingFeed(providerQuery);
+
+        let ingested = 0;
+        for (const rec of records) {
+          if (!memoryStore.has(rec.itemId)) {
+            memoryStore.set(rec.itemId, {
+              item: {
+                id: rec.itemId,
+                type: rec.type || "sound",
+                title: rec.title || rec.itemId,
+                firstDetectedAt: rec.previousTimestamp || new Date().toISOString()
+              },
+              snapshots: []
+            });
+          }
+
+          const entry = memoryStore.get(rec.itemId);
+
+          // Seed previous snapshot if provided
+          if (rec.previousTimestamp && typeof rec.previousViews === "number") {
+            entry.snapshots.push({
+              timestamp: rec.previousTimestamp,
+              totalViews: rec.previousViews,
+              totalVideos: rec.previousVideos
+            });
+          }
+
+          // Append current observation
+          entry.snapshots.push({
+            timestamp: rec.timestamp,
+            totalViews: rec.totalViews,
+            totalVideos: rec.totalVideos
+          });
+
+          // Track correlations if available
+          if (rec.type === "sound" && Array.isArray(rec.hashtags)) {
+            if (!correlationsStore.has(rec.itemId)) {
+              correlationsStore.set(rec.itemId, new Set());
+            }
+            const soundSet = correlationsStore.get(rec.itemId);
+            rec.hashtags.forEach(tag => soundSet.add(tag));
+          }
+
+          entry.snapshots.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          if (entry.snapshots.length > 48) {
+            entry.snapshots.shift();
+          }
+
+          ingested++;
+        }
+
+        return sendJson(res, 200, {
+          status: "success",
+          provider,
+          ingestedCount: ingested
         });
       }
 

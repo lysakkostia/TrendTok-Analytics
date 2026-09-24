@@ -165,8 +165,8 @@
               <th>Trend Name & Identifier</th>
               <th style="width: 150px;">Virality Score (VVS)</th>
               <th style="width: 130px;">Hourly Velocity</th>
-              <th style="width: 110px;">Acceleration</th>
               <th style="width: 140px;">Lifecycle Phase</th>
+              <th style="width: 160px;">Opportunity Horizon</th>
               <th style="width: 140px;">24h Trajectory</th>
               <th style="width: 120px; text-align: right;">Action</th>
             </tr>
@@ -263,6 +263,14 @@
     </div>
 
     <div class="drawer-body">
+      <div class="sandbox-group">
+        <label class="sandbox-group-label">LIVE DATA INGESTION (REQ-FR-10)</label>
+        <p class="sandbox-help">Fetches real trending TikTok audios and hashtags via Creative Center / Live Feed adapter.</p>
+        <button id="btn-fetch-live" class="btn btn-hero full-width">
+          <span>🌐</span> Fetch Live TikTok Feed
+        </button>
+      </div>
+
       <div class="sandbox-group">
         <label class="sandbox-group-label">BASELINE POPULATION</label>
         <p class="sandbox-help">Loads the canonical golden set (5 sounds, 5 hashtags) with 24 hours of snapshot history.</p>
