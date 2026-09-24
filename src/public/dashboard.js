@@ -1,5 +1,6 @@
 /**
- * TrendTok Analytics - Client Web Dashboard Application
+ * TrendTok Analytics - User-Centric Creator & SMM Dashboard Application
+ * Light-theme modern SaaS interface with slide-over simulation sandbox.
  * Implements REQ-FR-08 (Web Dashboard) and REQ-FR-09 (Simulation Controller)
  */
 
@@ -12,27 +13,59 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDashboard();
   setupEventListeners();
 
-  // Auto-refresh telemetry every 5 seconds
-  setInterval(loadTelemetryOnly, 5000);
+  // Background telemetry refresher (every 6 seconds)
+  setInterval(loadTelemetryOnly, 6000);
 });
 
 /**
- * Sets up button and interaction listeners.
+ * Attaches user interaction and sandbox event listeners.
  */
 function setupEventListeners() {
+  // Sandbox Drawer Toggle
+  const sandboxToggle = document.getElementById("btn-sandbox-toggle");
+  const sandboxClose = document.getElementById("btn-close-sandbox");
+  const drawerBackdrop = document.getElementById("drawer-backdrop");
+  const drawer = document.getElementById("sandbox-drawer");
+
+  function openDrawer() {
+    drawer?.classList.add("open");
+    drawerBackdrop?.classList.remove("hidden");
+  }
+
+  function closeDrawer() {
+    drawer?.classList.remove("open");
+    drawerBackdrop?.classList.add("hidden");
+  }
+
+  sandboxToggle?.addEventListener("click", openDrawer);
+  sandboxClose?.addEventListener("click", closeDrawer);
+  drawerBackdrop?.addEventListener("click", closeDrawer);
+
+  // Simulation Actions
   document.getElementById("btn-seed")?.addEventListener("click", handleSeed);
+  document.getElementById("btn-quick-seed")?.addEventListener("click", handleSeed);
   document.getElementById("btn-step")?.addEventListener("click", handleStep);
   document.getElementById("btn-viral")?.addEventListener("click", handleInjectViral);
   document.getElementById("btn-noise")?.addEventListener("click", handleInjectNoise);
-  document.getElementById("btn-refresh")?.addEventListener("click", loadDashboard);
+  document.getElementById("btn-refresh")?.addEventListener("click", () => {
+    loadDashboard();
+    showToast("Telemetry stream refreshed.");
+  });
 
-  // Filter tabs
-  const tabBtns = document.querySelectorAll(".tab-btn");
-  tabBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-      tabBtns.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      activeFilter = btn.dataset.filter;
+  // Copy Featured Track Button
+  document.getElementById("btn-copy-featured")?.addEventListener("click", () => {
+    const soundId = document.getElementById("featured-id")?.textContent || "sound_aurora";
+    navigator.clipboard?.writeText(soundId);
+    showToast(`Copied ${soundId} to clipboard!`);
+  });
+
+  // Filter Chips
+  const filterChips = document.querySelectorAll(".filter-chip");
+  filterChips.forEach(chip => {
+    chip.addEventListener("click", () => {
+      filterChips.forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      activeFilter = chip.dataset.filter;
       renderTable();
     });
   });
@@ -50,24 +83,24 @@ function setupEventListeners() {
 }
 
 /**
- * Main data loader for dashboard.
+ * Main dashboard data synchronizer.
  */
 export async function loadDashboard() {
   try {
     await Promise.all([loadTelemetry(), loadTrendsData()]);
   } catch (err) {
-    console.error("[Dashboard] Error loading data:", err);
+    console.error("[TrendTok] Error loading data:", err);
   }
 }
 
 /**
- * Lightweight telemetry refresher.
+ * Lightweight background telemetry refresher.
  */
 async function loadTelemetryOnly() {
   try {
     await loadTelemetry();
   } catch (e) {
-    // suppress background poll error
+    // suppress poll error
   }
 }
 
@@ -83,7 +116,7 @@ async function loadTelemetry() {
   const uptimeEl = document.getElementById("uptime-val");
   const totalKpiEl = document.getElementById("kpi-total");
 
-  if (statusEl) statusEl.textContent = data.status === "ok" ? "СИСТЕМА АКТИВНА" : "УВАГА";
+  if (statusEl) statusEl.textContent = data.status === "ok" ? "Live Stream Active" : "Degraded";
   if (uptimeEl) {
     const sec = Math.floor(data.uptime || 0);
     uptimeEl.textContent = sec > 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`;
@@ -101,7 +134,7 @@ async function loadTrendsData() {
   }
   allTrendsData = await res.json();
 
-  // Also fetch emerging list to guarantee exact alignment
+  // Also query emerging list to guarantee exact alignment
   const emergingRes = await fetch("/api/trends/emerging");
   const emergingData = emergingRes.ok ? await emergingRes.json() : [];
   const emergingIds = new Set(emergingData.map(item => item.id));
@@ -112,6 +145,7 @@ async function loadTrendsData() {
   });
 
   updateKpis(allTrendsData, emergingData);
+  updateSpotlight(allTrendsData);
   renderTable();
 }
 
@@ -156,6 +190,24 @@ function updateKpis(allTrends, emerging) {
 }
 
 /**
+ * Updates the Spotlight Card with the highest ranking emerging audio.
+ */
+function updateSpotlight(allTrends) {
+  const featured = allTrends.find(item => item.type === "sound" && item.isEmerging) || allTrends[0];
+  if (!featured) return;
+
+  const titleEl = document.getElementById("featured-title");
+  const idEl = document.getElementById("featured-id");
+  const vvsEl = document.getElementById("featured-vvs");
+  const velEl = document.getElementById("featured-velocity");
+
+  if (titleEl) titleEl.textContent = featured.title || featured.id;
+  if (idEl) idEl.textContent = featured.id;
+  if (vvsEl) vvsEl.textContent = `${featured.vvs.toFixed(1)} / 100`;
+  if (velEl) velEl.textContent = `+${featured.hourlyVelocity ?? 0} v/hr`;
+}
+
+/**
  * Renders the filtered and searched leaderboard table.
  */
 function renderTable() {
@@ -178,8 +230,8 @@ function renderTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" class="loading-state">
-          Не знайдено жодного тренду за заданими критеріями фільтрації.
+        <td colspan="9" class="table-loading">
+          No trends matched your filter or search criteria.
         </td>
       </tr>
     `;
@@ -188,9 +240,9 @@ function renderTable() {
 
   tbody.innerHTML = filtered.map((item, index) => {
     const rank = index + 1;
-    const rankClass = rank === 1 ? "top-1" : rank === 2 ? "top-2" : rank === 3 ? "top-3" : "";
+    const rankClass = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
     const typeIcon = item.type === "sound" ? "🎵" : "#️⃣";
-    const statusClass = `status-${item.status || "NOISE"}`;
+    const status = item.status || "NOISE";
     const vvs = (item.vvs || 0).toFixed(1);
     const hourlyVelocity = item.hourlyVelocity ?? (item.snapshotsCount > 1 ? "—" : "0");
     const accel = item.acceleration !== undefined ? `${item.acceleration > 0 ? "+" : ""}${Number(item.acceleration).toFixed(1)}` : "—";
@@ -198,43 +250,45 @@ function renderTable() {
 
     return `
       <tr data-id="${escapeHtml(item.id)}">
-        <td class="trend-rank ${rankClass}">#${rank}</td>
+        <td class="rank-cell ${rankClass}">#${rank}</td>
         <td>
-          <span class="entity-badge entity-${escapeHtml(item.type)}">${typeIcon} ${escapeHtml(item.type)}</span>
+          <span class="badge-mini">${typeIcon} ${escapeHtml(item.type)}</span>
         </td>
         <td>
-          <div class="trend-identity">
-            <span class="trend-title">${escapeHtml(item.title || item.id)}</span>
-            <span class="trend-id">${escapeHtml(item.id)}</span>
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(item.title || item.id)}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted);">${escapeHtml(item.id)}</span>
           </div>
         </td>
         <td>
-          <div class="vvs-cell">
-            <span class="vvs-score">${vvs}</span>
-            <div class="vvs-bar-track">
-              <div class="vvs-bar-fill" style="width: ${Math.min(100, Math.max(0, item.vvs))}%"></div>
+          <div class="vvs-wrapper">
+            <span class="vvs-num">${vvs}</span>
+            <div class="vvs-track">
+              <div class="vvs-bar" style="width: ${Math.min(100, Math.max(0, item.vvs))}%"></div>
             </div>
           </div>
         </td>
         <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">
-          ${hourlyVelocity} <span style="font-size: 11px; color: var(--text-muted);">в/год</span>
+          +${hourlyVelocity} <span style="font-size: 11px; color: var(--text-muted);">v/hr</span>
         </td>
-        <td style="font-family: 'JetBrains Mono', monospace; color: ${item.acceleration > 0 ? "var(--accent-green)" : "var(--text-muted)};">
+        <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600; color: ${item.acceleration > 0 ? "#059669" : "var(--text-muted)"};">
           ${accel}
         </td>
         <td>
-          <span class="status-pill ${statusClass}">${escapeHtml(item.status || "NOISE")}</span>
+          <span class="status-pill status-${status}">${escapeHtml(status)}</span>
         </td>
         <td>
           ${sparkline}
         </td>
-        <td>
+        <td style="text-align: right;">
           ${item.type === "sound" ? `
-            <button class="btn btn-secondary btn-inspect" data-sound-id="${escapeHtml(item.id)}" style="padding: 4px 8px; font-size: 11px;">
-              🔗 Хештеги
+            <button class="btn btn-outline-sm btn-inspect" data-sound-id="${escapeHtml(item.id)}">
+              View Hashtags
             </button>
           ` : `
-            <span style="color: var(--text-muted); font-size: 11px;">—</span>
+            <button class="btn btn-outline-sm btn-copy-tag" data-tag-title="${escapeHtml(item.title || item.id)}">
+              Copy Tag
+            </button>
           `}
         </td>
       </tr>
@@ -248,18 +302,27 @@ function renderTable() {
       inspectCorrelations(soundId);
     });
   });
+
+  // Attach copy tag handlers
+  document.querySelectorAll(".btn-copy-tag").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tag = btn.dataset.tagTitle;
+      navigator.clipboard?.writeText(tag);
+      showToast(`Copied ${tag} to clipboard!`);
+    });
+  });
 }
 
 /**
- * Generates lightweight SVG sparkline.
+ * Generates lightweight, crisp SVG sparkline for trend trajectory.
  */
 function renderSparklineSvg(deltas) {
   if (!deltas || deltas.length < 2) {
-    return `<div style="color: var(--text-muted); font-size: 11px;">(мало даних)</div>`;
+    return `<span style="color: var(--text-muted); font-size: 11px;">(Accumulating...)</span>`;
   }
 
   const width = 110;
-  const height = 28;
+  const height = 26;
   const max = Math.max(...deltas, 10);
   const min = Math.min(...deltas, 0);
   const range = max - min || 1;
@@ -272,40 +335,68 @@ function renderSparklineSvg(deltas) {
 
   return `
     <svg class="sparkline-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-      <polyline class="sparkline-path" points="${points}" />
+      <polyline class="sparkline-line" points="${points}" />
     </svg>
   `;
 }
 
 /**
- * Inspects co-occurring hashtags for a sound item.
+ * Inspects co-occurring hashtags for an audio sound track.
  */
 async function inspectCorrelations(soundId) {
   const panel = document.getElementById("correlations-content");
   if (!panel) return;
 
-  panel.innerHTML = `<div class="spinner"></div> Запит кореляцій для <code>${escapeHtml(soundId)}</code>...`;
+  panel.innerHTML = `<div class="spinner"></div> Retrieving co-occurring tags for <code>${escapeHtml(soundId)}</code>...`;
 
   try {
     const res = await fetch(`/api/trends/${encodeURIComponent(soundId)}/correlations`);
-    if (!res.ok) throw new Error("Помилка отримання даних кореляції");
+    if (!res.ok) throw new Error("Could not retrieve correlation telemetry");
     const data = await res.json();
 
     if (!data.correlatedHashtags || data.correlatedHashtags.length === 0) {
-      panel.innerHTML = `<p class="empty-state">Для звуку <strong>${escapeHtml(soundId)}</strong> немає зафіксованих асоційованих хештегів.</p>`;
+      panel.innerHTML = `
+        <div class="empty-placeholder">
+          <p>No associated viral hashtags found for track <strong>${escapeHtml(soundId)}</strong>.</p>
+        </div>
+      `;
       return;
     }
 
     panel.innerHTML = `
-      <div>
-        <div style="font-weight: 700; margin-bottom: 8px;">Асоційовані вірусні хештеги для <code>${escapeHtml(soundId)}</code>:</div>
-        <div class="correlation-tags">
-          ${data.correlatedHashtags.map(tag => `<span class="correlation-tag">${escapeHtml(tag)}</span>`).join("")}
+      <div class="correlation-cluster">
+        <div>
+          <span style="font-weight: 700; font-size: 13px;">High-Affinity Hashtags for <code>${escapeHtml(soundId)}</code>:</span>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Pair these tags with this audio in your TikTok caption for higher FYP algorithm distribution.</p>
         </div>
+        <div class="tag-list">
+          ${data.correlatedHashtags.map(tag => `
+            <span class="tag-item" title="Click to copy tag">${escapeHtml(tag)}</span>
+          `).join("")}
+        </div>
+        <button id="btn-copy-all-tags" class="btn btn-outline-sm" style="margin-top: 10px; align-self: flex-start;">
+          📋 Copy All ${data.correlatedHashtags.length} Tags to Clipboard
+        </button>
       </div>
     `;
+
+    // Click to copy individual tag
+    panel.querySelectorAll(".tag-item").forEach(item => {
+      item.addEventListener("click", () => {
+        navigator.clipboard?.writeText(item.textContent);
+        showToast(`Copied ${item.textContent}!`);
+      });
+    });
+
+    // Copy all tags
+    document.getElementById("btn-copy-all-tags")?.addEventListener("click", () => {
+      const allStr = data.correlatedHashtags.join(" ");
+      navigator.clipboard?.writeText(allStr);
+      showToast("Copied all tags to clipboard!");
+    });
+
   } catch (err) {
-    panel.innerHTML = `<p class="empty-state" style="color: var(--accent-rose);">${err.message}</p>`;
+    panel.innerHTML = `<div class="empty-placeholder" style="color: var(--accent-magenta);">${err.message}</div>`;
   }
 }
 
@@ -319,6 +410,7 @@ async function handleSeed() {
     const res = await fetch("/api/simulation/seed", { method: "POST" });
     if (res.ok) {
       await loadDashboard();
+      showToast("Canonical Golden Set loaded (5 sounds, 5 hashtags).");
     }
   } finally {
     if (btn) btn.disabled = false;
@@ -335,6 +427,7 @@ async function handleStep() {
     const res = await fetch("/api/simulation/step", { method: "POST" });
     if (res.ok) {
       await loadDashboard();
+      showToast("Simulation advanced by +1 hour.");
     }
   } finally {
     if (btn) btn.disabled = false;
@@ -357,6 +450,7 @@ async function handleInjectViral() {
       })
     });
     await loadDashboard();
+    showToast("Explosive viral sound injected! Status: VIRAL (VVS ≥ 80).");
   } catch (err) {
     console.error(err);
   }
@@ -378,6 +472,7 @@ async function handleInjectNoise() {
       })
     });
     await loadDashboard();
+    showToast("Sub-threshold noise injected! Status: NOISE (Suppressed).");
   } catch (err) {
     console.error(err);
   }
@@ -409,17 +504,31 @@ async function handleManualIngest(e) {
 
     const data = await res.json();
     if (res.ok) {
-      alertEl.textContent = `✅ Зріз успішно додано! Зафіксовано записів: ${data.ingestedCount}`;
-      alertEl.className = "ingest-alert success";
+      alertEl.textContent = `Snapshot ingested successfully! Records queued: ${data.ingestedCount}`;
+      alertEl.className = "alert-box success";
       await loadDashboard();
+      showToast("New snapshot evaluated in VVS calculus.");
     } else {
-      alertEl.textContent = `❌ Помилка: ${data.message || data.error}`;
-      alertEl.className = "ingest-alert error";
+      alertEl.textContent = `Validation error: ${data.message || data.error}`;
+      alertEl.className = "alert-box error";
     }
   } catch (err) {
-    alertEl.textContent = `❌ Мережева помилка: ${err.message}`;
-    alertEl.className = "ingest-alert error";
+    alertEl.textContent = `Network communication error: ${err.message}`;
+    alertEl.className = "alert-box error";
   }
+}
+
+/**
+ * Shows temporary toast notification.
+ */
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.remove("hidden");
+  setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 2800);
 }
 
 function escapeHtml(str) {
