@@ -232,5 +232,34 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.equal(resTitle.statusCode, 200);
     assert.ok(resTitle.body.items[0].title.localeCompare(resTitle.body.items[1].title) <= 0);
   });
+
+  // ==========================================
+  // Isolated Test & Simulation Lab (/test & /api/test/*)
+  // ==========================================
+  await t.test("GET /test and /test.js serve the isolated QA Simulation Lab", async () => {
+    const htmlRes = await makeRequest("/test", { headers: { Accept: "text/html" } });
+    assert.equal(htmlRes.statusCode, 200);
+    assert.ok(htmlRes.rawBody.includes("Simulation Sandbox"));
+
+    const jsRes = await makeRequest("/test.js");
+    assert.equal(jsRes.statusCode, 200);
+    assert.ok(jsRes.rawBody.includes("/api/test/trends"));
+  });
+
+  await t.test("Isolated /api/test/* endpoints operate on test database without affecting main database", async () => {
+    const seedRes = await makeRequest("/api/test/simulation/seed", { method: "POST" });
+    assert.equal(seedRes.statusCode, 200);
+    assert.equal(seedRes.body.targetDatabase, "test");
+
+    const testHealth = await makeRequest("/api/test/health");
+    assert.equal(testHealth.statusCode, 200);
+    assert.equal(testHealth.body.mode, "test_simulation_lab");
+    assert.equal(testHealth.body.trackedItems, 2);
+
+    // Main DB still retains its 1,000+ trends
+    const mainHealth = await makeRequest("/api/health");
+    assert.equal(mainHealth.statusCode, 200);
+    assert.ok(mainHealth.body.trackedItems >= 1000, "Main DB should remain untouched by test lab seed");
+  });
 });
 

@@ -38,10 +38,10 @@
         <span class="pulse-dot"></span>
         <span id="service-status">Live Stream Active</span>
       </div>
-      <button id="btn-sandbox-toggle" class="btn btn-sandbox" title="Open Simulation & Testing Console">
+      <a href="/test" class="btn btn-sandbox" title="Open QA & Simulation Testing Lab">
         <span class="sandbox-icon-dot"></span>
-        <span>Simulation Sandbox</span>
-      </button>
+        <span>Test &amp; Simulation Lab ↗</span>
+      </a>
     </div>
   </header>
 
@@ -56,12 +56,12 @@
           in the emerging growth phase (VVS ≥ 50.0, positive acceleration) before creator saturation.
         </p>
         <div class="spotlight-actions">
-          <button id="btn-quick-seed" class="btn btn-hero">
-            <span>Load Curated Trends Feed</span>
-          </button>
-          <a href="#leaderboard" class="btn btn-hero-secondary">
-            Explore Rising Sounds ↓
+          <a href="#feed" class="btn btn-hero">
+            <span>Explore Rising Sounds ↓</span>
           </a>
+          <button id="btn-refresh-feed" class="btn btn-hero-secondary" title="Re-sync latest metrics from database">
+            <span>Refresh Telemetry</span>
+          </button>
         </div>
       </div>
       <div class="spotlight-card">
@@ -254,147 +254,42 @@
         </div>
       </div>
 
-      <!-- Creator Insights & Manual Snapshot Feed -->
-      <div class="panel-box">
+      <!-- Algorithmic Lifecycle Radar & SMM Strategy Guide -->
+      <div class="panel-box" id="insights">
         <div class="panel-box-header">
           <div>
-            <h3 class="panel-box-title">Instant Snapshot Ingestion</h3>
-            <p class="panel-box-subtitle">Submit custom TikTok metrics into the scoring calculus</p>
+            <h3 class="panel-box-title">Algorithmic Lifecycle Radar</h3>
+            <p class="panel-box-subtitle">Multi-window velocity calculus &amp; optimal creator publishing windows</p>
           </div>
-          <span class="badge-code">REQ-FR-01</span>
+          <span class="badge-code">ALGO-V2.1</span>
         </div>
         <div class="panel-box-body">
-          <form id="ingest-form" class="user-form">
-            <div class="form-grid">
-              <div class="form-field">
-                <label for="inp-id">Item Identifier</label>
-                <input type="text" id="inp-id" required placeholder="e.g. sound_summer_groove" value="sound_creator_demo">
-              </div>
-              <div class="form-field">
-                <label for="inp-type">Content Type</label>
-                <select id="inp-type">
-                  <option value="sound">Audio Sound</option>
-                  <option value="hashtag">Hashtag</option>
-                </select>
-              </div>
+          <div class="lifecycle-guide-grid">
+            <div class="guide-item">
+              <span class="status-pill status-EMERGING">EMERGING (VVS ≥ 50.0)</span>
+              <div class="guide-title">Prime Viral Opportunity Window</div>
+              <p class="guide-desc">Adoption acceleration is strictly positive. Creators have an estimated 6–18 hour window to participate before algorithmic market saturation.</p>
             </div>
-            <div class="form-field">
-              <label for="inp-title">Display Title</label>
-              <input type="text" id="inp-title" placeholder="Summer Groove Beat" value="Summer Groove Beat">
+            <div class="guide-item">
+              <span class="status-pill status-VIRAL">VIRAL (Breakout)</span>
+              <div class="guide-title">Exponential Peak Velocity</div>
+              <p class="guide-desc">Massive creation velocity (+200 to +500 videos/hr). High audience reach, but competition for top FYP placement rapidly increases.</p>
             </div>
-            <div class="form-grid">
-              <div class="form-field">
-                <label for="inp-views">Cumulative Views</label>
-                <input type="number" id="inp-views" required min="0" value="48000">
-              </div>
-              <div class="form-field">
-                <label for="inp-videos">Video Creations</label>
-                <input type="number" id="inp-videos" required min="0" value="340">
-              </div>
+            <div class="guide-item">
+              <span class="status-pill status-SATURATED">SATURATED (Plateau)</span>
+              <div class="guide-title">Deceleration Phase</div>
+              <p class="guide-desc">Total volume remains high (millions of views), but hourly velocity has stalled. Algorithmic decay begins; low organic growth ROI.</p>
             </div>
-            <button type="submit" class="btn btn-submit full-width">
-              Ingest Snapshot &amp; Evaluate Virality
-            </button>
-            <div id="ingest-alert" class="alert-box hidden"></div>
-          </form>
+            <div class="guide-item">
+              <span class="status-pill status-NOISE">NOISE FLOOR (Guarded)</span>
+              <div class="guide-title">Micro-Sample Filtered</div>
+              <p class="guide-desc">Filtered micro-sample anomalies (&lt;15k views or &lt;30 delta for sounds; &lt;25k views or &lt;100 delta for hashtags) to prevent false positives.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   </main>
-
-  <!-- Slide-Over Demo Simulation Sandbox Drawer -->
-  <aside id="sandbox-drawer" class="sandbox-drawer">
-    <div class="drawer-header">
-      <div class="drawer-title">
-        <span class="sandbox-icon-dot"></span>
-        <div>
-          <h3>Simulation Sandbox</h3>
-          <p>Deterministic evaluation controller for testers and evaluators</p>
-        </div>
-      </div>
-      <button id="btn-close-sandbox" class="btn-close" aria-label="Close Sandbox">✕</button>
-    </div>
-
-    <div class="drawer-body">
-      <div class="sandbox-group">
-        <label class="sandbox-group-label">HIGH-SCALE DATASET INGESTION (REQ-FR-13)</label>
-        <p class="sandbox-help">Ingest 1,000 to 2,500+ items across the full lifecycle distribution (Just Uploaded, Emerging, Viral, Saturated) into SQLite.</p>
-        <div class="sandbox-actions-col">
-          <button id="btn-ingest-1000" class="btn btn-hero full-width">
-            Ingest 1,000 High-Scale Corpus
-          </button>
-          <button id="btn-ingest-2500" class="btn btn-outline-dark full-width">
-            Ingest 2,500 Full Dataset
-          </button>
-          <button id="btn-fetch-live" class="btn btn-secondary full-width">
-            Fetch Live TikTok Feed
-          </button>
-        </div>
-      </div>
-
-      <div class="sandbox-group">
-        <label class="sandbox-group-label">DATABASE MAINTENANCE</label>
-        <p class="sandbox-help">Wipe obsolete historical snapshots and re-seed with clean, monotonic 1,000 trend corpus.</p>
-        <button id="btn-reset-db" class="btn btn-outline-dark full-width">
-          Reset &amp; Re-seed Clean Database
-        </button>
-      </div>
-
-      <div class="sandbox-group">
-        <label class="sandbox-group-label">BASELINE POPULATION</label>
-        <p class="sandbox-help">Loads the canonical golden set (5 sounds, 5 hashtags) with 24 hours of snapshot history.</p>
-        <button id="btn-seed" class="btn btn-primary full-width">
-          Load Canonical Golden Set
-        </button>
-      </div>
-
-      <div class="sandbox-group">
-        <label class="sandbox-group-label">TIME ACCELERATION</label>
-        <p class="sandbox-help">Advance the simulation clock by 1 hour. Synthesizes new snapshots according to current item momentum.</p>
-        <button id="btn-step" class="btn btn-secondary full-width">
-          Step Time Forward (+1 Hour)
-        </button>
-      </div>
-
-      <div class="sandbox-group">
-        <label class="sandbox-group-label">EDGE CASE INJECTIONS</label>
-        <p class="sandbox-help">Inject predefined synthetic anomalies to test guardrails and state machine responses.</p>
-        <div class="sandbox-actions-col">
-          <button id="btn-viral" class="btn btn-accent-coral full-width">
-            Inject Explosive Viral Sound (VVS ≥ 80)
-          </button>
-          <button id="btn-noise" class="btn btn-outline-dark full-width">
-            Inject Sub-Threshold Noise (Suppressed)
-          </button>
-        </div>
-      </div>
-
-      <div class="sandbox-group">
-        <label class="sandbox-group-label">RUNTIME TELEMETRY</label>
-        <div class="telemetry-table">
-          <div class="telemetry-row">
-            <span>Database Engine</span>
-            <span class="font-mono text-indigo">node:sqlite (Embedded)</span>
-          </div>
-          <div class="telemetry-row">
-            <span>API Specification</span>
-            <span class="font-mono">SRS-TRENDTOK-2026-V2</span>
-          </div>
-          <div class="telemetry-row">
-            <span>Service Uptime</span>
-            <span id="uptime-val" class="font-mono">0s</span>
-          </div>
-          <div class="telemetry-row">
-            <span>Calculus Latency (NFR-01)</span>
-            <span class="font-mono text-emerald">&lt; 0.1 ms</span>
-          </div>
-        </div>
-        <button id="btn-refresh" class="btn btn-ghost full-width" style="margin-top: 10px;">
-          Force Refresh Telemetry
-        </button>
-      </div>
-    </div>
-  </aside>
 
   <!-- Trend Deep-Dive Telemetry Inspector Modal (REQ-FR-12, REQ-FR-14, REQ-FR-15) -->
   <div id="trend-detail-modal" class="modal-backdrop hidden">

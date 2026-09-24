@@ -334,7 +334,7 @@ export function generateMonotonicTrajectory(category, snapshotCount = 6, endTime
  * @returns {Array<Object>} Normalized trend snapshot records with direct TikTok URLs
  */
 export function generateHighScaleCorpus(targetScale = 1000) {
-  const scale = Math.max(50, Math.min(5000, targetScale));
+  const scale = Math.max(50, Math.min(100000, targetScale));
   const records = [];
 
   // Seed baseline anchors first

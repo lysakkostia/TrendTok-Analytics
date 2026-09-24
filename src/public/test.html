@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrendTok — QA & Simulation Testing Lab</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="light-theme">
+  <!-- Top Application Bar -->
+  <header class="navbar">
+    <div class="navbar-left">
+      <div class="brand">
+        <div class="brand-icon" style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);">
+          <svg class="tiktok-note" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
+        <div>
+          <span class="brand-name">TrendTok</span>
+          <span class="brand-badge" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">Test Lab</span>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a href="/" class="nav-link">← Live Radar Dashboard</a>
+        <a href="#lab-controls" class="nav-link active">Simulation &amp; Ingestion</a>
+        <a href="#test-feed" class="nav-link">Test Database Table</a>
+      </nav>
+    </div>
+
+    <div class="navbar-right">
+      <div class="telemetry-pill" title="Connected to isolated test database">
+        <span class="pulse-dot" style="background-color: #0284c7;"></span>
+        <span id="test-service-status">Test DB: trendtok_test.db</span>
+      </div>
+      <a href="/" class="btn btn-outline-sm" title="Return to Live Radar">
+        <span>Exit Lab ↗</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Lab Overview & Quick Action Panel -->
+    <section class="spotlight-banner" id="lab-controls" style="background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%); border-color: #bbf7d0;">
+      <div class="spotlight-content" style="max-width: 65%;">
+        <div class="spotlight-tag" style="background: #dcfce7; color: #15803d; border-color: #86efac;">
+          ISOLATED QA ENVIRONMENT
+        </div>
+        <h2 class="spotlight-title">Simulation Sandbox &amp; Test Ingestion Suite</h2>
+        <p class="spotlight-desc">
+          Execute algorithmic tests against the isolated SQLite test database (<code>data/trendtok_test.db</code>).
+          Changes here never alter production telemetry or live creator feeds.
+        </p>
+        <div class="spotlight-actions" style="flex-wrap: wrap; gap: 8px;">
+          <button id="btn-test-seed" class="btn btn-hero" title="Load Golden Set (5 sounds, 5 hashtags)">
+            <span>Load Golden Set</span>
+          </button>
+          <button id="btn-test-step" class="btn btn-hero-secondary" title="Advance time by 1 hour for all items">
+            <span>Step +1 Hour</span>
+          </button>
+          <button id="btn-test-viral" class="btn btn-hero-secondary" style="border-color: #fecdd3; color: #be123c;" title="Inject high-velocity viral track">
+            <span>Inject Viral Spike</span>
+          </button>
+          <button id="btn-test-noise" class="btn btn-hero-secondary" style="border-color: #cbd5e1; color: #475569;" title="Inject micro-sample noise hashtag">
+            <span>Inject Noise Spike</span>
+          </button>
+          <button id="btn-test-reset" class="btn btn-hero-secondary" style="border-color: #fca5a5; color: #b91c1c;" title="Wipe test database">
+            <span>Wipe Test DB</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="spotlight-card" style="border-color: #bfdbfe; background: #ffffff;">
+        <div class="spotlight-card-header">
+          <span class="badge-mini">Test Database Stats</span>
+          <span class="badge-status-emerging" id="test-kpi-mode">ISOLATED</span>
+        </div>
+        <div class="spotlight-metrics" style="grid-template-columns: 1fr 1fr; margin-top: 14px;">
+          <div class="metric-mini">
+            <span class="metric-mini-label">Test Trends</span>
+            <span class="metric-mini-val highlight-cyan" id="test-kpi-trends">0</span>
+          </div>
+          <div class="metric-mini">
+            <span class="metric-mini-label">Snapshots</span>
+            <span class="metric-mini-val highlight-green" id="test-kpi-snapshots">0</span>
+          </div>
+          <div class="metric-mini">
+            <span class="metric-mini-label">Emerging</span>
+            <span class="metric-mini-val highlight-green" id="test-kpi-emerging">0</span>
+          </div>
+          <div class="metric-mini">
+            <span class="metric-mini-label">Noise Filtered</span>
+            <span class="metric-mini-val highlight-magenta" id="test-kpi-noise">0</span>
+          </div>
+        </div>
+        <button id="btn-test-refresh" class="btn btn-outline-sm full-width" style="margin-top: 14px;">
+          Refresh Test Metrics
+        </button>
+      </div>
+    </section>
+
+    <!-- Two Column Layout: Manual Ingestion Form & Bulk Loader -->
+    <div class="dashboard-grid" style="margin-top: 24px;">
+      <!-- Left Card: Snapshot Ingestion Form -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Instant Snapshot Ingestion</h3>
+            <p class="card-subtitle">Manually inject a raw observation into <code>trendtok_test.db</code></p>
+          </div>
+          <span class="badge-mini">POST /api/test/snapshots</span>
+        </div>
+        <div class="card-body">
+          <form id="test-ingest-form" class="ingest-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inp-id">Item ID</label>
+                <input type="text" id="inp-id" required placeholder="e.g. sound_aurora_custom" value="sound_custom_test">
+              </div>
+              <div class="form-group">
+                <label for="inp-type">Item Type</label>
+                <select id="inp-type">
+                  <option value="sound">Sound / Music Track</option>
+                  <option value="hashtag">Hashtag (#)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="inp-title">Display Title / Clean Name</label>
+              <input type="text" id="inp-title" required placeholder="e.g. Midnight Waves — Lo-Fi Chill" value="Midnight Waves — Lo-Fi Chill">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inp-views">Cumulative Views</label>
+                <input type="number" id="inp-views" required min="0" placeholder="e.g. 85000" value="75000">
+              </div>
+              <div class="form-group">
+                <label for="inp-videos">Cumulative Video Creations</label>
+                <input type="number" id="inp-videos" required min="0" placeholder="e.g. 450" value="380">
+              </div>
+            </div>
+
+            <div id="test-ingest-alert" class="alert-box hidden"></div>
+
+            <button type="submit" class="btn btn-primary full-width">
+              <span>Submit Snapshot into Test DB</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Right Card: Bulk Test Corpus Ingestion & SDD Validation -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Bulk Test Corpus &amp; Guardrails</h3>
+            <p class="card-subtitle">Scale testing up to 2,500 trends or evaluate edge guardrails</p>
+          </div>
+          <span class="badge-mini">SDD-GATE-01</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+            Load pre-configured viral test batches directly into <code>trendtok_test.db</code> to benchmark multi-window VVS performance without affecting production:
+          </p>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="btn-test-ingest-500" class="btn btn-outline" style="flex: 1;">
+              +500 Test Items
+            </button>
+            <button id="btn-test-ingest-1000" class="btn btn-outline" style="flex: 1;">
+              +1,000 Test Items
+            </button>
+            <button id="btn-test-ingest-2500" class="btn btn-outline" style="flex: 1;">
+              +2,500 Test Items
+            </button>
+          </div>
+
+          <div style="background-color: var(--bg-canvas); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px;">
+            <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+              Algorithmic Guardrails Enforced:
+            </h4>
+            <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.6;">
+              <li><strong>Noise Barrier</strong>: Sounds &lt; 10,000 views or hashtags &lt; 25,000 views are classified as <code>NOISE</code> regardless of video delta.</li>
+              <li><strong>Multi-Window VVS</strong>: 50% 1-hour velocity + 35% 6-hour acceleration + 15% 24-hour total volume.</li>
+              <li><strong>Saturation Horizon</strong>: Calculates hours until creator adoption peak inflection based on 2nd derivative.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Test Database Table Section -->
+    <section class="leaderboard-section" id="test-feed" style="margin-top: 32px;">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Test Database Records</h2>
+          <p class="section-subtitle">Real-time inspection of trends stored in <code>data/trendtok_test.db</code></p>
+        </div>
+
+        <div class="search-bar">
+          <input type="text" id="test-search-input" placeholder="Search test items by title or ID..." class="search-input">
+        </div>
+      </div>
+
+      <!-- Category Filter Chips -->
+      <div class="filter-bar">
+        <button class="filter-chip active" data-filter="all">All Records</button>
+        <button class="filter-chip" data-filter="sounds">Sounds Only</button>
+        <button class="filter-chip" data-filter="hashtags">Hashtags Only</button>
+        <button class="filter-chip" data-filter="emerging">Status: EMERGING</button>
+        <button class="filter-chip" data-filter="viral">Status: VIRAL</button>
+        <button class="filter-chip" data-filter="noise">Status: NOISE</button>
+      </div>
+
+      <!-- Table Container -->
+      <div class="table-container">
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th class="col-rank sortable" data-sort="rank"># <span class="sort-icon">↕</span></th>
+              <th class="col-type sortable" data-sort="type">Type <span class="sort-icon">↕</span></th>
+              <th class="col-name sortable" data-sort="title">Title &amp; External Link <span class="sort-icon">↕</span></th>
+              <th class="col-metric sortable" data-sort="vvs">Virality (VVS) <span class="sort-icon">↓</span></th>
+              <th class="col-metric sortable" data-sort="velocity">1h Velocity <span class="sort-icon">↕</span></th>
+              <th class="col-metric sortable" data-sort="acceleration">Acceleration <span class="sort-icon">↕</span></th>
+              <th class="col-status sortable" data-sort="status">Status <span class="sort-icon">↕</span></th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="test-leaderboard-body">
+            <tr>
+              <td colspan="8" class="table-loading">Loading test records from trendtok_test.db...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="pagination-bar">
+        <div class="pagination-info">
+          Showing <span id="test-page-start">1</span>–<span id="test-page-end">50</span> of <span id="test-total-count">0</span> test trends
+        </div>
+        <div class="page-size-selector">
+          <span>Items per page:</span>
+          <button class="page-size-btn active" data-size="25">25</button>
+          <button class="page-size-btn" data-size="50">50</button>
+          <button class="page-size-btn" data-size="100">100</button>
+        </div>
+        <div class="pagination-actions">
+          <button id="btn-test-prev-page" class="btn btn-pagination" disabled>← Previous</button>
+          <span class="page-indicator">Page <span id="test-current-page">1</span> of <span id="test-total-pages">1</span></span>
+          <button id="btn-test-next-page" class="btn btn-pagination">Next →</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Deep-Dive Modal (REQ-FR-12) -->
+  <div id="test-detail-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-badge-row">
+            <span class="badge-mini" id="modal-type">Sound</span>
+            <span id="modal-status-badge" class="badge-status-emerging">EMERGING</span>
+          </div>
+          <h2 class="modal-title" id="modal-title">Trend Telemetry</h2>
+          <div class="modal-id" id="modal-id">id_loading</div>
+        </div>
+        <button id="btn-close-modal" class="btn-icon" aria-label="Close dialog">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-kpi-grid">
+          <div class="modal-kpi-card">
+            <span class="modal-kpi-label">Virality Score</span>
+            <span class="modal-kpi-val highlight-cyan" id="modal-vvs">0.0</span>
+          </div>
+          <div class="modal-kpi-card">
+            <span class="modal-kpi-label">Hourly Velocity</span>
+            <span class="modal-kpi-val highlight-green" id="modal-velocity">+0 v/hr</span>
+          </div>
+          <div class="modal-kpi-card">
+            <span class="modal-kpi-label">Total Views</span>
+            <span class="modal-kpi-val" id="modal-views">0</span>
+          </div>
+          <div class="modal-kpi-card">
+            <span class="modal-kpi-label">Total Creations</span>
+            <span class="modal-kpi-val" id="modal-videos">0</span>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h4 class="modal-section-title">Telemetry Snapshot History</h4>
+          <div class="snapshots-table-wrapper">
+            <table class="snapshots-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Cumulative Views</th>
+                  <th>Total Videos</th>
+                  <th>Delta Videos</th>
+                </tr>
+              </thead>
+              <tbody id="modal-snapshots-body">
+                <tr><td colspan="4">No historical records available.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <a id="modal-tiktok-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          Open on TikTok ↗
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="/test.js"></script>
+</body>
+</html>

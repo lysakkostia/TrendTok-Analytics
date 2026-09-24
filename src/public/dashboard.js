@@ -27,36 +27,11 @@ document.addEventListener("DOMContentLoaded", () => {
  * Attaches user interaction, pagination, modal, and sandbox event listeners.
  */
 function setupEventListeners() {
-  // Sandbox Drawer Toggle
-  const sandboxToggle = document.getElementById("btn-sandbox-toggle");
-  const sandboxClose = document.getElementById("btn-close-sandbox");
-  const drawerBackdrop = document.getElementById("drawer-backdrop");
-  const drawer = document.getElementById("sandbox-drawer");
-
-  function openDrawer() {
-    drawer?.classList.add("open");
-    drawerBackdrop?.classList.remove("hidden");
-  }
-
-  function closeDrawer() {
-    drawer?.classList.remove("open");
-    drawerBackdrop?.classList.add("hidden");
-  }
-
-  sandboxToggle?.addEventListener("click", openDrawer);
-  sandboxClose?.addEventListener("click", closeDrawer);
-  drawerBackdrop?.addEventListener("click", closeDrawer);
-
-  // Ingestion & Simulation Actions
-  document.getElementById("btn-ingest-1000")?.addEventListener("click", () => handleIngestScale(1000));
-  document.getElementById("btn-ingest-2500")?.addEventListener("click", () => handleIngestScale(2500));
-  document.getElementById("btn-reset-db")?.addEventListener("click", handleResetDatabase);
-  document.getElementById("btn-fetch-live")?.addEventListener("click", handleFetchLive);
-  document.getElementById("btn-seed")?.addEventListener("click", handleSeed);
-  document.getElementById("btn-quick-seed")?.addEventListener("click", handleSeed);
-  document.getElementById("btn-step")?.addEventListener("click", handleStep);
-  document.getElementById("btn-viral")?.addEventListener("click", handleInjectViral);
-  document.getElementById("btn-noise")?.addEventListener("click", handleInjectNoise);
+  // Refresh Feed and Telemetry Action
+  document.getElementById("btn-refresh-feed")?.addEventListener("click", () => {
+    loadDashboard();
+    showToast("Telemetry stream & live radar refreshed.");
+  });
   document.getElementById("btn-refresh")?.addEventListener("click", () => {
     loadDashboard();
     showToast("Telemetry stream refreshed.");
@@ -143,10 +118,6 @@ function setupEventListeners() {
       modal.classList.add("hidden");
     }
   });
-
-  // Manual Ingest form
-  const ingestForm = document.getElementById("ingest-form");
-  ingestForm?.addEventListener("submit", handleManualIngest);
 }
 
 /**
@@ -733,127 +704,6 @@ async function handleFetchLive() {
       btn.disabled = false;
       btn.innerHTML = origHtml || `Fetch Live TikTok Feed`;
     }
-  }
-}
-
-/**
- * Handles simulation seed.
- */
-async function handleSeed() {
-  const btn = document.getElementById("btn-seed");
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetch("/api/simulation/seed", { method: "POST" });
-    if (res.ok) {
-      currentPage = 1;
-      await loadDashboard();
-      showToast("Canonical Golden Set loaded (5 sounds, 5 hashtags).");
-    }
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-/**
- * Handles simulation step (+1 hour).
- */
-async function handleStep() {
-  const btn = document.getElementById("btn-step");
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetch("/api/simulation/step", { method: "POST" });
-    if (res.ok) {
-      await loadDashboard();
-      showToast("Simulation advanced by +1 hour.");
-    }
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-/**
- * Injects viral spike.
- */
-async function handleInjectViral() {
-  try {
-    await fetch("/api/simulation/inject", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scenario: "viral_spike",
-        itemId: `sound_viral_${Date.now().toString().slice(-4)}`,
-        type: "sound",
-        title: "Neon Echo Velocity"
-      })
-    });
-    currentPage = 1;
-    await loadDashboard();
-    showToast("Explosive viral sound injected! Status: VIRAL (VVS ≥ 80).");
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-/**
- * Injects micro-sample noise.
- */
-async function handleInjectNoise() {
-  try {
-    await fetch("/api/simulation/inject", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scenario: "noise_spike",
-        itemId: `hash_noise_${Date.now().toString().slice(-4)}`,
-        type: "hashtag",
-        title: "#microanomaly"
-      })
-    });
-    currentPage = 1;
-    await loadDashboard();
-    showToast("Sub-threshold noise injected! Status: NOISE (Suppressed).");
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-/**
- * Handles manual snapshot form submit.
- */
-async function handleManualIngest(e) {
-  e.preventDefault();
-  const alertEl = document.getElementById("ingest-alert");
-  if (!alertEl) return;
-
-  const payload = {
-    itemId: document.getElementById("inp-id").value.trim(),
-    type: document.getElementById("inp-type").value,
-    title: document.getElementById("inp-title").value.trim(),
-    totalViews: Number(document.getElementById("inp-views").value),
-    totalVideos: Number(document.getElementById("inp-videos").value),
-    timestamp: new Date().toISOString()
-  };
-
-  try {
-    const res = await fetch("/api/snapshots", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      alertEl.textContent = `Snapshot ingested successfully! Records queued: ${data.ingestedCount}`;
-      alertEl.className = "alert-box success";
-      await loadDashboard();
-      showToast("New snapshot evaluated in VVS calculus.");
-    } else {
-      alertEl.textContent = `Validation error: ${data.message || data.error}`;
-      alertEl.className = "alert-box error";
-    }
-  } catch (err) {
-    alertEl.textContent = `Network communication error: ${err.message}`;
-    alertEl.className = "alert-box error";
   }
 }
 
