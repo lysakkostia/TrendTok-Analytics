@@ -1,16 +1,23 @@
 /**
  * TrendTok Analytics - Asynchronous Web Service Entrypoint
  * 
- * Implements SRS v2.0 REST Endpoints & In-Memory TTL Storage
+ * Implements SRS v2.0 & v2.1 REST Endpoints, In-Memory TTL Storage & Web Dashboard
  * Standard: IEEE Std 830 / ISO/IEC/IEEE 29148
  */
 
 import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   checkNoiseGuardrail,
   calculateMultiWindowVVS,
   determineLifecycleStatus
 } from "./trendScorer.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_DIR = path.join(__dirname, "public");
 
 const PORT = process.env.PORT || 3000;
 
@@ -48,9 +55,12 @@ function parseJsonBody(req) {
 
 /**
  * Helper to send JSON responses.
+ * @param {http.ServerResponse} res
+ * @param {number} statusCode
+ * @param {Object} data
  */
 function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, { "Content-Type": "application/json" });
+  res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
 }
 
@@ -65,39 +75,75 @@ export function createServer() {
     const method = req.method;
 
     try {
-      // 0. API Discovery & Root Index
-      if (method === "GET" && url.pathname === "/") {
-        return sendJson(res, 200, {
-          service: "TrendTok Analytics",
-          version: "2.0.0",
-          specification: "SRS-TRENDTOK-2026-V2",
-          description: "Real-Time TikTok Viral Content Intelligence Web Service",
-          author: "Lysak Kostiantyn (KN-32)",
-          endpoints: {
-            "GET /": "API index & catalog",
-            "GET /api/health": "Health telemetry & uptime",
-            "GET /api/trends": "All tracked trends (supports ?type=sound|hashtag)",
-            "GET /api/trends/emerging": "Emerging viral trends (VVS >= 50, acceleration > 0)",
-            "GET /api/trends/:id/correlations": "Sound + hashtag co-occurrence correlations",
-            "POST /api/snapshots": "Ingest metric snapshots",
-            "POST /api/simulation/seed": "Seed Golden Set test data"
+      // ==========================================
+      // REQ-FR-08: Web Dashboard Static Routing
+      // ==========================================
+      if (method === "GET") {
+        // 1. Dashboard HTML at GET / when requested by browser or Accept includes text/html
+        if (url.pathname === "/") {
+          const acceptHeader = req.headers.accept || "";
+          if (acceptHeader.includes("text/html")) {
+            const htmlPath = path.join(PUBLIC_DIR, "index.html");
+            const htmlContent = await fs.readFile(htmlPath, "utf-8");
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            return res.end(htmlContent);
           }
-        });
+
+          // Otherwise return API discovery catalog (backward-compatible)
+          return sendJson(res, 200, {
+            service: "TrendTok Analytics",
+            version: "2.1.0",
+            specification: "SRS-TRENDTOK-2026-V2",
+            description: "Real-Time TikTok Viral Content Intelligence Web Service",
+            author: "Lysak Kostiantyn (KN-32)",
+            endpoints: {
+              "GET /": "Web Dashboard (browser) or API index (json)",
+              "GET /api/health": "Health telemetry & uptime",
+              "GET /api/trends": "All tracked trends (supports ?type=sound|hashtag)",
+              "GET /api/trends/emerging": "Emerging viral trends (VVS >= 50, acceleration > 0)",
+              "GET /api/trends/:id/correlations": "Sound + hashtag co-occurrence correlations",
+              "POST /api/snapshots": "Ingest metric snapshots",
+              "POST /api/simulation/seed": "Seed Golden Set test data",
+              "POST /api/simulation/step": "Advance simulation time by 1 hour",
+              "POST /api/simulation/inject": "Inject anomaly spike (viral or noise)"
+            }
+          });
+        }
+
+        // 2. Dashboard Stylesheet
+        if (url.pathname === "/dashboard.css") {
+          const cssPath = path.join(PUBLIC_DIR, "dashboard.css");
+          const cssContent = await fs.readFile(cssPath, "utf-8");
+          res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+          return res.end(cssContent);
+        }
+
+        // 3. Dashboard Client Script
+        if (url.pathname === "/dashboard.js") {
+          const jsPath = path.join(PUBLIC_DIR, "dashboard.js");
+          const jsContent = await fs.readFile(jsPath, "utf-8");
+          res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
+          return res.end(jsContent);
+        }
       }
 
-      // 1. Health Endpoint (REQ-FR-01 / Telemetry)
+      // ==========================================
+      // Telemetry Endpoint (REQ-FR-01 / Health)
+      // ==========================================
       if (method === "GET" && (url.pathname === "/health" || url.pathname === "/api/health")) {
         return sendJson(res, 200, {
           status: "ok",
           service: "TrendTok Analytics",
-          version: "2.0.0",
+          version: "2.1.0",
           specification: "SRS-TRENDTOK-2026-V2",
           trackedItems: memoryStore.size,
           uptime: process.uptime()
         });
       }
 
-      // 2. Snapshot Ingestion (REQ-FR-01)
+      // ==========================================
+      // Snapshot Ingestion (REQ-FR-01)
+      // ==========================================
       if (method === "POST" && url.pathname === "/api/snapshots") {
         const payload = await parseJsonBody(req);
         const records = Array.isArray(payload) ? payload : [payload];
@@ -156,7 +202,9 @@ export function createServer() {
         });
       }
 
-      // 3. Emerging Trends Query (REQ-FR-05)
+      // ==========================================
+      // Emerging Trends Query (REQ-FR-05)
+      // ==========================================
       if (method === "GET" && url.pathname === "/api/trends/emerging") {
         const results = [];
 
@@ -200,7 +248,8 @@ export function createServer() {
               vvs,
               status,
               totalViews: latest.totalViews,
-              hourlyVelocity: delta1h
+              hourlyVelocity: delta1h,
+              acceleration
             });
           }
         }
@@ -209,7 +258,9 @@ export function createServer() {
         return sendJson(res, 200, results);
       }
 
-      // 4. All Trends List (REQ-FR-05)
+      // ==========================================
+      // All Trends List with Analytics & Deltas (REQ-FR-05 & REQ-FR-08)
+      // ==========================================
       if (method === "GET" && url.pathname === "/api/trends") {
         const typeFilter = url.searchParams.get("type");
         const list = [];
@@ -221,19 +272,46 @@ export function createServer() {
           const prev1h = sn.length >= 2 ? sn[sn.length - 2] : latest;
           const delta1h = Math.max(0, latest.totalVideos - prev1h.totalVideos);
 
+          const passesGuard = checkNoiseGuardrail({
+            type: entry.item.type,
+            totalViews: latest.totalViews,
+            deltaVideos: delta1h
+          });
+
           const vvs = calculateMultiWindowVVS({
             type: entry.item.type,
             totalViews: latest.totalViews,
             window1h: delta1h
           });
 
+          const acceleration = sn.length >= 3
+            ? (delta1h - Math.max(0, prev1h.totalVideos - sn[sn.length - 3].totalVideos))
+            : 5.0;
+
+          const status = determineLifecycleStatus({
+            vvs,
+            acceleration,
+            passesGuardrail: passesGuard,
+            velocity1h: delta1h
+          });
+
+          // Compute recent history deltas for sparkline visualization
+          const historyDeltas = [];
+          for (let i = 1; i < sn.length; i++) {
+            historyDeltas.push(Math.max(0, sn[i].totalVideos - sn[i - 1].totalVideos));
+          }
+
           list.push({
             id: entry.item.id,
             type: entry.item.type,
             title: entry.item.title,
             vvs,
+            status,
+            hourlyVelocity: delta1h,
+            acceleration,
             totalViews: latest.totalViews,
-            snapshotsCount: sn.length
+            snapshotsCount: sn.length,
+            historyDeltas: historyDeltas.slice(-12)
           });
         }
 
@@ -241,7 +319,9 @@ export function createServer() {
         return sendJson(res, 200, list);
       }
 
-      // 5. Sound + Hashtag Correlations (REQ-FR-06)
+      // ==========================================
+      // Sound + Hashtag Correlations (REQ-FR-06)
+      // ==========================================
       const correlationMatch = url.pathname.match(/^\/api\/trends\/([^/]+)\/correlations$/);
       if (method === "GET" && correlationMatch) {
         const itemId = correlationMatch[1];
@@ -254,7 +334,9 @@ export function createServer() {
         });
       }
 
-      // 6. Simulation Golden Set Seeder (REQ-FR-07)
+      // ==========================================
+      // Simulation Golden Set Seeder (REQ-FR-07)
+      // ==========================================
       if (method === "POST" && url.pathname === "/api/simulation/seed") {
         memoryStore.clear();
         correlationsStore.clear();
@@ -286,6 +368,132 @@ export function createServer() {
         });
       }
 
+      // ==========================================
+      // Simulation Step Controller (+1 Hour) (REQ-FR-09)
+      // ==========================================
+      if (method === "POST" && url.pathname === "/api/simulation/step") {
+        if (memoryStore.size === 0) {
+          // Auto-seed if empty
+          memoryStore.set("sound_aurora", {
+            item: { id: "sound_aurora", type: "sound", title: "Aurora Echoes", firstDetectedAt: new Date().toISOString() },
+            snapshots: [
+              { timestamp: new Date(Date.now() - 3600000).toISOString(), totalViews: 28000, totalVideos: 120 },
+              { timestamp: new Date().toISOString(), totalViews: 42000, totalVideos: 250 }
+            ]
+          });
+        }
+
+        let stepped = 0;
+        let latestTimestamp = "";
+
+        for (const [id, entry] of memoryStore.entries()) {
+          const sn = entry.snapshots;
+          if (sn.length === 0) continue;
+          const last = sn[sn.length - 1];
+          const lastTime = new Date(last.timestamp).getTime();
+          const newTime = new Date(lastTime + 3600 * 1000).toISOString();
+          latestTimestamp = newTime;
+
+          const prev = sn.length >= 2 ? sn[sn.length - 2] : last;
+          const currentDelta = Math.max(0, last.totalVideos - prev.totalVideos);
+
+          let nextVideoDelta = 0;
+          let nextViewDelta = 0;
+
+          if (id === "sound_aurora" || id.includes("viral")) {
+            nextVideoDelta = Math.floor(currentDelta * 1.3) + 40;
+            nextViewDelta = nextVideoDelta * 220;
+          } else if (id === "hash_cozy" || id.includes("noise")) {
+            nextVideoDelta = Math.max(5, Math.floor(Math.random() * 8) + 2);
+            nextViewDelta = nextVideoDelta * 40;
+          } else {
+            nextVideoDelta = Math.max(20, Math.floor(currentDelta * 1.1) + 15);
+            nextViewDelta = nextVideoDelta * 120;
+          }
+
+          sn.push({
+            timestamp: newTime,
+            totalViews: last.totalViews + nextViewDelta,
+            totalVideos: last.totalVideos + nextVideoDelta
+          });
+
+          if (sn.length > 48) {
+            sn.shift();
+          }
+
+          stepped++;
+        }
+
+        return sendJson(res, 200, {
+          status: "stepped",
+          steppedItems: stepped,
+          simulatedTimestamp: latestTimestamp
+        });
+      }
+
+      // ==========================================
+      // Simulation Anomaly Injector (REQ-FR-09)
+      // ==========================================
+      if (method === "POST" && url.pathname === "/api/simulation/inject") {
+        const payload = await parseJsonBody(req);
+        const scenario = payload.scenario || "viral_spike";
+        const now = new Date();
+        const t0 = new Date(now.getTime() - 3600 * 1000).toISOString();
+        const t1 = now.toISOString();
+
+        if (scenario === "viral_spike") {
+          const id = payload.itemId || `sound_viral_${Date.now()}`;
+          const title = payload.title || "Hypersonic Beat";
+          memoryStore.set(id, {
+            item: { id, type: payload.type || "sound", title, firstDetectedAt: t0 },
+            snapshots: [
+              { timestamp: t0, totalViews: 25000, totalVideos: 80 },
+              { timestamp: t1, totalViews: 90000, totalVideos: 420 }
+            ]
+          });
+          if (Array.isArray(payload.hashtags)) {
+            correlationsStore.set(id, new Set(payload.hashtags));
+          } else {
+            correlationsStore.set(id, new Set(["#viralspike", "#trendingmusic"]));
+          }
+          return sendJson(res, 201, {
+            status: "injected",
+            scenario: "viral_spike",
+            item: { id, type: payload.type || "sound", title }
+          });
+        }
+
+        if (scenario === "noise_spike") {
+          const id = payload.itemId || `hash_noise_${Date.now()}`;
+          const title = payload.title || "#microanomaly";
+          memoryStore.set(id, {
+            item: { id, type: payload.type || "hashtag", title, firstDetectedAt: t0 },
+            snapshots: [
+              { timestamp: t0, totalViews: 4000, totalVideos: 10 },
+              { timestamp: t1, totalViews: 5200, totalVideos: 25 }
+            ]
+          });
+          return sendJson(res, 201, {
+            status: "injected",
+            scenario: "noise_spike",
+            item: { id, type: payload.type || "hashtag", title }
+          });
+        }
+
+        // Custom generic injection
+        const id = payload.itemId || `item_${Date.now()}`;
+        memoryStore.set(id, {
+          item: { id, type: payload.type || "sound", title: payload.title || id, firstDetectedAt: t1 },
+          snapshots: [
+            { timestamp: t1, totalViews: payload.totalViews || 1000, totalVideos: payload.totalVideos || 10 }
+          ]
+        });
+        return sendJson(res, 201, {
+          status: "injected",
+          item: { id, type: payload.type || "sound", title: payload.title || id }
+        });
+      }
+
       // 404 Handler
       return sendJson(res, 404, { error: "NOT_FOUND", message: `Endpoint ${url.pathname} not found.` });
 
@@ -300,6 +508,6 @@ export const server = createServer();
 // Auto-start only if executed directly via node CLI
 if (process.argv[1] && import.meta.filename === process.argv[1]) {
   server.listen(PORT, () => {
-    console.log(`[TrendTok Analytics] Server running at http://localhost:${PORT}/ (Spec v2.0)`);
+    console.log(`[TrendTok Analytics] Server running at http://localhost:${PORT}/ (Spec v2.1)`);
   });
 }

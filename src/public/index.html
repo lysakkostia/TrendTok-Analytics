@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrendTok Analytics — Real-Time Viral Intelligence</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-icon">
+          <span class="pulse-ring"></span>
+          <span class="icon">📈</span>
+        </div>
+        <div>
+          <h1 class="logo-title">TrendTok <span>Analytics</span></h1>
+          <p class="logo-subtitle">Real-Time Viral Content Intelligence Web Service</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="badge status-live">
+          <span class="status-dot"></span>
+          <span id="service-status">СИСТЕМА АКТИВНА</span>
+        </div>
+        <div class="badge spec-badge">SRS v2.1 (IEEE 830)</div>
+        <div class="badge uptime-badge">Uptime: <span id="uptime-val">0s</span></div>
+      </div>
+    </header>
+
+    <!-- Simulation & Control Toolbar -->
+    <section class="toolbar-panel">
+      <div class="toolbar-title">
+        <span class="toolbar-icon">⚙️</span>
+        <span>Консоль симуляції та керування (REQ-FR-09)</span>
+      </div>
+      <div class="toolbar-actions">
+        <button id="btn-seed" class="btn btn-primary" title="Завантажити еталонний набір Golden Set">
+          <span class="btn-icon">🌱</span> Завантажити Golden Set
+        </button>
+        <button id="btn-step" class="btn btn-secondary" title="Зсув модельного часу на 1 годину вперед">
+          <span class="btn-icon">⏩</span> Крок часу (+1 год)
+        </button>
+        <button id="btn-viral" class="btn btn-accent" title="Інжектувати раптовий вірусний сплеск">
+          <span class="btn-icon">⚡</span> Сплеск вірусності
+        </button>
+        <button id="btn-noise" class="btn btn-outline" title="Змоделювати мікровибірку з шумом">
+          <span class="btn-icon">🔇</span> Інжектувати шум
+        </button>
+        <button id="btn-refresh" class="btn btn-ghost" title="Оновити дані з API">
+          <span class="btn-icon">🔄</span> Оновити
+        </button>
+      </div>
+    </section>
+
+    <!-- Metric Telemetry Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Відстежувані тренди</div>
+        <div class="kpi-value" id="kpi-total">0</div>
+        <div class="kpi-trend">У пам'яті (TTL Ring 48h)</div>
+      </div>
+      <div class="kpi-card kpi-card-emerging">
+        <div class="kpi-label">Зароджувані тренди (EMERGING)</div>
+        <div class="kpi-value highlight-green" id="kpi-emerging">0</div>
+        <div class="kpi-trend">VVS ≥ 50.0 та прискорення a > 0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Піковий бал вірусності (Peak VVS)</div>
+        <div class="kpi-value highlight-cyan" id="kpi-peak-vvs">0.0</div>
+        <div class="kpi-trend">Максимум шкали [0.0..100.0]</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Шумовий бар'єр (Noise Filter)</div>
+        <div class="kpi-value highlight-gray" id="kpi-noise-rate">0%</div>
+        <div class="kpi-trend">Відсіяно guardrail-політикою</div>
+      </div>
+    </section>
+
+    <!-- Filter Navigation & Search -->
+    <div class="leaderboard-header">
+      <div class="filter-tabs">
+        <button class="tab-btn active" data-filter="all">Всі тренди (<span id="count-all">0</span>)</button>
+        <button class="tab-btn" data-filter="emerging">🚀 Зароджувані (<span id="count-emerging">0</span>)</button>
+        <button class="tab-btn" data-filter="sound">🎵 Аудіозвуки (<span id="count-sound">0</span>)</button>
+        <button class="tab-btn" data-filter="hashtag">#️⃣ Хештеги (<span id="count-hashtag">0</span>)</button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Пошук за назвою або ID...">
+      </div>
+    </div>
+
+    <!-- Leaderboard Table -->
+    <div class="table-container">
+      <table class="leaderboard-table" id="leaderboard">
+        <thead>
+          <tr>
+            <th style="width: 60px;">Ранг</th>
+            <th style="width: 90px;">Тип</th>
+            <th>Ідентифікатор / Назва тренду</th>
+            <th style="width: 140px;">Бал VVS (0..100)</th>
+            <th style="width: 130px;">Швидкість (1г)</th>
+            <th style="width: 110px;">Прискорення</th>
+            <th style="width: 140px;">Статус життєвого циклу</th>
+            <th style="width: 150px;">Траєкторія</th>
+            <th style="width: 110px;">Дії</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr>
+            <td colspan="9" class="loading-state">
+              <div class="spinner"></div> Завантаження телеметрії з API...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bottom Section: Correlations & Manual Ingestion -->
+    <div class="grid-split">
+      <!-- Correlation Inspector Card -->
+      <section class="card panel-card" id="correlations-panel">
+        <div class="card-header">
+          <h3>🔗 Перехресні кореляції (Sound ↔ Hashtags)</h3>
+          <span class="hint-pill">REQ-FR-06</span>
+        </div>
+        <div class="card-body" id="correlations-content">
+          <p class="empty-state">Оберіть трендовий звук у таблиці для перегляду асоційованих хештегів.</p>
+        </div>
+      </section>
+
+      <!-- Manual Snapshot Ingestion Card -->
+      <section class="card panel-card">
+        <div class="card-header">
+          <h3>📥 Ручне надсилання зрізу (Ingestion)</h3>
+          <span class="hint-pill">REQ-FR-01</span>
+        </div>
+        <div class="card-body">
+          <form id="ingest-form" class="ingest-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inp-id">Item ID</label>
+                <input type="text" id="inp-id" required placeholder="sound_new_beat" value="sound_custom_demo">
+              </div>
+              <div class="form-group">
+                <label for="inp-type">Тип сутності</label>
+                <select id="inp-type">
+                  <option value="sound">Аудіо (Sound)</option>
+                  <option value="hashtag">Хештег (Hashtag)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inp-title">Назва / Опис</label>
+                <input type="text" id="inp-title" placeholder="Cyber Anthem 2026" value="Cyber Anthem 2026">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inp-views">Перегляди (totalViews)</label>
+                <input type="number" id="inp-views" required min="0" value="45000">
+              </div>
+              <div class="form-group">
+                <label for="inp-videos">Відео (totalVideos)</label>
+                <input type="number" id="inp-videos" required min="0" value="380">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary full-width">
+              <span>🚀</span> Надіслати зріз у чергу обробки
+            </button>
+            <div id="ingest-alert" class="ingest-alert hidden"></div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>TrendTok Analytics © 2026. Національний технічний університет України «КПІ ім. Ігоря Сікорського», ННІ ПСА.</div>
+      <div class="footer-meta">Студент: Лисак К. С. (КН-32) | Дисципліна: Проєктування інформаційних систем (ПІС)</div>
+    </footer>
+  </div>
+
+  <script src="/dashboard.js"></script>
+</body>
+</html>
