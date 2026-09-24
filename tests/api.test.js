@@ -216,5 +216,15 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.ok(res.body.totalCount >= 1000);
     assert.ok(res.body.totalPages >= 40);
   });
+
+  await t.test("GET /api/trends supports multi-column sorting (REQ-FR-15)", async () => {
+    const resVel = await makeRequest("/api/trends?limit=10&page=1&sortBy=velocity&sortOrder=desc");
+    assert.equal(resVel.statusCode, 200);
+    assert.ok(resVel.body.items[0].hourlyVelocity >= resVel.body.items[1].hourlyVelocity);
+
+    const resTitle = await makeRequest("/api/trends?limit=10&page=1&sortBy=title&sortOrder=asc");
+    assert.equal(resTitle.statusCode, 200);
+    assert.ok(resTitle.body.items[0].title.localeCompare(resTitle.body.items[1].title) <= 0);
+  });
 });
 

@@ -86,7 +86,7 @@ test("SQLite Repository Suite: High-Scale Persistence & Multi-Window Granularity
     const soundItem = corpus.find(c => c.type === "sound");
     const hashtagItem = corpus.find(c => c.type === "hashtag");
 
-    assert.ok(soundItem.tiktokUrl.startsWith("https://www.tiktok.com/music/"));
+    assert.ok(soundItem.tiktokUrl.startsWith("https://www.tiktok.com/search?q=") || soundItem.tiktokUrl.startsWith("https://www.tiktok.com/music/"));
     assert.ok(hashtagItem.tiktokUrl.startsWith("https://www.tiktok.com/tag/"));
   });
 
@@ -99,6 +99,7 @@ test("SQLite Repository Suite: High-Scale Persistence & Multi-Window Granularity
     assert.equal(p1.items.length, 25);
     assert.equal(p1.page, 1);
     assert.equal(p1.totalPages, 20); // 500 / 25
+    assert.ok(p1.items[0].vvs > 0, "Top item must have non-zero VVS");
 
     // Page 2 with limit 50
     const p2 = repo.queryTrendsPaged({ limit: 50, offset: 50 });
@@ -107,14 +108,27 @@ test("SQLite Repository Suite: High-Scale Persistence & Multi-Window Granularity
 
     // Filter by Category
     const viral = repo.queryTrendsPaged({ limit: 100, category: "viral24h" });
+    assert.ok(viral.items.length > 0, "Must contain viral items");
     for (const item of viral.items) {
       assert.equal(item.status, "VIRAL");
+      assert.ok(item.vvs >= 80.0, "Viral items must have VVS >= 80");
     }
 
     const noise = repo.queryTrendsPaged({ limit: 100, category: "noise" });
+    assert.ok(noise.items.length > 0, "Must contain noise items");
     for (const item of noise.items) {
       assert.equal(item.status, "NOISE");
     }
+
+    // Multi-column sorting (REQ-FR-15)
+    const byVelDesc = repo.queryTrendsPaged({ limit: 10, sortBy: "velocity", sortOrder: "desc" });
+    assert.ok(byVelDesc.items[0].hourlyVelocity >= byVelDesc.items[1].hourlyVelocity);
+
+    const byVelAsc = repo.queryTrendsPaged({ limit: 10, sortBy: "velocity", sortOrder: "asc" });
+    assert.ok(byVelAsc.items[0].hourlyVelocity <= byVelAsc.items[1].hourlyVelocity);
+
+    const byTitleAsc = repo.queryTrendsPaged({ limit: 10, sortBy: "title", sortOrder: "asc" });
+    assert.ok(byTitleAsc.items[0].title.localeCompare(byTitleAsc.items[1].title) <= 0);
   });
 
   await t.test("Prunes snapshots older than 7 days (REQ-FR-12)", () => {

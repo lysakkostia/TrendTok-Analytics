@@ -11,6 +11,8 @@ let currentPage = 1;
 let pageSize = 50;
 let totalTrendsCount = 0;
 let totalPages = 1;
+let currentSortBy = "vvs";
+let currentSortOrder = "desc";
 
 // Initialize on DOM ready
 document.addEventListener("DOMContentLoaded", () => {
@@ -78,6 +80,21 @@ function setupEventListeners() {
     });
   });
 
+  // Table Column Header Sorting (REQ-FR-15)
+  document.querySelectorAll(".leaderboard-table th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.sort;
+      if (currentSortBy === col) {
+        currentSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+      } else {
+        currentSortBy = col;
+        currentSortOrder = (col === "rank" || col === "type" || col === "title" || col === "status") ? "asc" : "desc";
+      }
+      updateSortHeaderUi();
+      loadTrendsData();
+    });
+  });
+
   // Search input
   const searchInp = document.getElementById("search-input");
   let searchDebounce = null;
@@ -132,6 +149,23 @@ function setupEventListeners() {
 }
 
 /**
+ * Updates table header sort indicator styling (REQ-FR-15).
+ */
+function updateSortHeaderUi() {
+  document.querySelectorAll(".leaderboard-table th.sortable").forEach(th => {
+    const col = th.dataset.sort;
+    const icon = th.querySelector(".sort-icon");
+    if (col === currentSortBy) {
+      th.classList.add("active-sort");
+      if (icon) icon.textContent = currentSortOrder === "asc" ? "↑" : "↓";
+    } else {
+      th.classList.remove("active-sort");
+      if (icon) icon.textContent = "↕";
+    }
+  });
+}
+
+/**
  * Main dashboard data synchronizer.
  */
 export async function loadDashboard() {
@@ -177,7 +211,7 @@ async function loadTelemetry() {
  * Fetches trends dataset with pagination, categories, and SQLite queries (REQ-FR-15).
  */
 async function loadTrendsData() {
-  const pagedUrl = `/api/trends?limit=${pageSize}&page=${currentPage}&category=${activeFilter}&search=${encodeURIComponent(searchQuery)}`;
+  const pagedUrl = `/api/trends?limit=${pageSize}&page=${currentPage}&category=${activeFilter}&search=${encodeURIComponent(searchQuery)}&sortBy=${encodeURIComponent(currentSortBy)}&sortOrder=${encodeURIComponent(currentSortOrder)}`;
   const res = await fetch(pagedUrl);
   if (!res.ok) {
     throw new Error(`Failed to load trends: ${res.status}`);
@@ -197,10 +231,44 @@ async function loadTrendsData() {
     currentPage = data.page ?? 1;
   }
 
+  // Client sort mirror for responsive feedback
+  sortTrendsInPlace(allTrendsData, currentSortBy, currentSortOrder);
+
   updatePaginationUi();
   updateKpis(allTrendsData);
   updateSpotlight(allTrendsData);
   renderTable();
+}
+
+/**
+ * Sorts array of trend DTOs in place by column and direction (REQ-FR-15).
+ */
+function sortTrendsInPlace(items, sortBy, sortOrder) {
+  if (!Array.isArray(items)) return;
+  const dir = sortOrder === "asc" ? 1 : -1;
+  const key = (sortBy || "vvs").toLowerCase();
+
+  if (key === "velocity" || key === "hourlyvelocity") {
+    items.sort((a, b) => dir * ((Number(a.hourlyVelocity) || 0) - (Number(b.hourlyVelocity) || 0)));
+  } else if (key === "type") {
+    items.sort((a, b) => dir * String(a.type || "").localeCompare(String(b.type || "")));
+  } else if (key === "title" || key === "name") {
+    items.sort((a, b) => dir * String(a.title || a.id || "").localeCompare(String(b.title || b.id || "")));
+  } else if (key === "status") {
+    items.sort((a, b) => dir * String(a.status || "").localeCompare(String(b.status || "")));
+  } else if (key === "horizon") {
+    items.sort((a, b) => dir * ((a.saturationPrediction?.hoursToPeak ?? 0) - (b.saturationPrediction?.hoursToPeak ?? 0)));
+  } else if (key === "trajectory" || key === "delta24h") {
+    items.sort((a, b) => dir * ((a.delta24h ?? 0) - (b.delta24h ?? 0)));
+  } else if (key === "delta6h") {
+    items.sort((a, b) => dir * ((a.delta6h ?? 0) - (b.delta6h ?? 0)));
+  } else if (key === "views") {
+    items.sort((a, b) => dir * ((a.totalViews ?? 0) - (b.totalViews ?? 0)));
+  } else if (key === "acceleration") {
+    items.sort((a, b) => dir * ((a.acceleration ?? 0) - (b.acceleration ?? 0)));
+  } else {
+    items.sort((a, b) => dir * ((a.vvs ?? 0) - (b.vvs ?? 0)));
+  }
 }
 
 /**
@@ -296,7 +364,6 @@ function renderTable() {
   tbody.innerHTML = allTrendsData.map((item, index) => {
     const rank = (currentPage - 1) * pageSize + index + 1;
     const rankClass = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
-    const typeIcon = item.type === "sound" ? "🎵" : "#️⃣";
     const status = item.status || "NOISE";
     const vvs = Number(item.vvs || 0).toFixed(1);
     const hourlyVelocity = item.hourlyVelocity ?? "0";
@@ -304,9 +371,16 @@ function renderTable() {
     const sparkline = renderSparklineSvg(item.historyDeltas || [0, Math.round(item.vvs || 0)]);
 
     // TikTok Direct Deep-Link (REQ-FR-14)
-    const tiktokUrl = item.tiktokUrl || (item.type === "hashtag"
-      ? `https://www.tiktok.com/tag/${encodeURIComponent((item.title || item.id).replace(/^#/, ""))}`
-      : `https://www.tiktok.com/music/-${encodeURIComponent(item.id.replace(/^sound_/, ""))}`);
+    let tiktokUrl = item.tiktokUrl;
+    if (!tiktokUrl || tiktokUrl.includes("/music/-sound_")) {
+      if (item.type === "hashtag") {
+        const cleanTag = (item.title || item.id).replace(/^#/, "");
+        tiktokUrl = `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
+      } else {
+        const cleanQuery = (item.title || item.id).replace(/[—–-]/g, " ").replace(/\s+/g, " ").trim();
+        tiktokUrl = `https://www.tiktok.com/search?q=${encodeURIComponent(cleanQuery)}`;
+      }
+    }
 
     const pred = item.saturationPrediction || {
       opportunityLevel: "PLATEAU",
@@ -316,18 +390,18 @@ function renderTable() {
 
     let horizonBadge = "";
     if (pred.opportunityLevel === "SURGING") {
-      horizonBadge = `<span class="badge-mini" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;" title="${escapeHtml(pred.opportunityWindow)}">⚡ Surging (~${pred.hoursToPeak}h)</span>`;
+      horizonBadge = `<span class="badge-mini badge-horizon-surging" title="${escapeHtml(pred.opportunityWindow)}">Surging (~${pred.hoursToPeak}h)</span>`;
     } else if (pred.opportunityLevel === "PEAK") {
-      horizonBadge = `<span class="badge-mini" style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a;" title="${escapeHtml(pred.opportunityWindow)}">🔥 Peak Reached</span>`;
+      horizonBadge = `<span class="badge-mini badge-horizon-peak" title="${escapeHtml(pred.opportunityWindow)}">Peak Reached</span>`;
     } else {
-      horizonBadge = `<span class="badge-mini" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;" title="${escapeHtml(pred.opportunityWindow)}">⏸ Plateaued</span>`;
+      horizonBadge = `<span class="badge-mini badge-horizon-plateau" title="${escapeHtml(pred.opportunityWindow)}">Plateaued</span>`;
     }
 
     return `
       <tr data-id="${escapeHtml(item.id)}">
         <td class="rank-cell ${rankClass}">#${rank}</td>
         <td>
-          <span class="badge-mini">${typeIcon} ${escapeHtml(item.type)}</span>
+          <span class="badge-mini badge-type">${escapeHtml(item.type)}</span>
         </td>
         <td>
           <div style="display: flex; flex-direction: column;">
@@ -367,15 +441,15 @@ function renderTable() {
         </td>
         <td style="text-align: right; white-space: nowrap;">
           <button class="btn btn-outline-sm btn-deep-dive" data-id="${escapeHtml(item.id)}" title="Inspect 1h/6h/24h metrics and full history">
-            📊 Detail
+            Detail
           </button>
           ${item.type === "sound" ? `
             <button class="btn btn-outline-sm btn-inspect" data-sound-id="${escapeHtml(item.id)}" title="View correlated hashtags">
-              #️⃣ Tags
+              Tags
             </button>
           ` : `
             <button class="btn btn-outline-sm btn-copy-tag" data-tag-title="${escapeHtml(item.title || item.id)}" title="Copy hashtag">
-              📋 Copy
+              Copy
             </button>
           `}
         </td>
@@ -423,7 +497,7 @@ async function openTrendDetail(trendId) {
 
     document.getElementById("modal-title").textContent = d.title || d.id;
     document.getElementById("modal-id").textContent = d.id;
-    document.getElementById("modal-type-badge").textContent = `${d.type === "sound" ? "🎵" : "#️⃣"} ${d.type}`;
+    document.getElementById("modal-type-badge").textContent = d.type;
 
     const tiktokLink = document.getElementById("modal-tiktok-link");
     if (tiktokLink) {
@@ -438,8 +512,8 @@ async function openTrendDetail(trendId) {
 
     const pred = d.saturationPrediction || { opportunityLevel: "PLATEAU", hoursToPeak: 0 };
     document.getElementById("modal-horizon").textContent = pred.opportunityLevel === "SURGING"
-      ? `⚡ Surging (~${pred.hoursToPeak}h remaining)`
-      : pred.opportunityLevel === "PEAK" ? "🔥 Peak Saturation" : "⏸ Plateaued";
+      ? `Surging (~${pred.hoursToPeak}h remaining)`
+      : pred.opportunityLevel === "PEAK" ? "Peak Saturation" : "Plateaued";
 
     // Associated hashtags
     const tagsList = document.getElementById("modal-tags-list");
@@ -547,7 +621,7 @@ async function inspectCorrelations(soundId) {
           `).join("")}
         </div>
         <button id="btn-copy-all-tags" class="btn btn-outline-sm" style="margin-top: 10px; align-self: flex-start;">
-          📋 Copy All ${data.correlatedHashtags.length} Tags to Clipboard
+          Copy All ${data.correlatedHashtags.length} Tags to Clipboard
         </button>
       </div>
     `;
@@ -626,7 +700,7 @@ async function handleFetchLive() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = origHtml || `<span>🌐</span> Fetch Live TikTok Feed`;
+      btn.innerHTML = origHtml || `Fetch Live TikTok Feed`;
     }
   }
 }

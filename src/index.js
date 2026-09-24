@@ -282,6 +282,7 @@ export function createServer() {
           const category = url.searchParams.get("category") || "all";
           const search = url.searchParams.get("search");
           const sortBy = url.searchParams.get("sortBy") || "vvs";
+          const sortOrder = url.searchParams.get("sortOrder") || "desc";
 
           const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 50;
           const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
@@ -293,7 +294,8 @@ export function createServer() {
             type: typeFilter,
             category,
             search,
-            sortBy
+            sortBy,
+            sortOrder
           });
 
           // If SQLite has data, return structured pagination
@@ -350,13 +352,13 @@ export function createServer() {
 
           // Canonical TikTok URL (REQ-FR-14)
           let tiktokUrl = entry.item.tiktokUrl || entry.item.external_url;
-          if (!tiktokUrl) {
+          if (!tiktokUrl || tiktokUrl.includes("/music/-sound_")) {
             if (entry.item.type === "hashtag") {
               const cleanTag = (entry.item.title || id).replace(/^#/, "");
               tiktokUrl = `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
             } else {
-              const soundId = id.replace(/^sound_/, "");
-              tiktokUrl = `https://www.tiktok.com/music/-${encodeURIComponent(soundId)}`;
+              const query = (entry.item.title || id).replace(/[—–-]/g, " ").replace(/\s+/g, " ").trim();
+              tiktokUrl = `https://www.tiktok.com/search?q=${encodeURIComponent(query)}`;
             }
           }
 
@@ -399,7 +401,7 @@ export function createServer() {
             title: entry.item.title,
             tiktokUrl: entry.item.type === "hashtag"
               ? `https://www.tiktok.com/tag/${encodeURIComponent(entry.item.title.replace(/^#/, ""))}`
-              : `https://www.tiktok.com/music/-${encodeURIComponent(entry.item.id.replace(/^sound_/, ""))}`,
+              : `https://www.tiktok.com/search?q=${encodeURIComponent((entry.item.title || entry.item.id).replace(/[—–-]/g, " ").trim())}`,
             hourlyVelocity: delta1h,
             totalViews: latest.totalViews,
             totalVideos: latest.totalVideos,
@@ -469,7 +471,7 @@ export function createServer() {
               totalViews: 42000,
               totalVideos: 250,
               hashtags: ["#aurora", "#cinematicvibes"],
-              tiktokUrl: "https://www.tiktok.com/music/-sound_aurora"
+              tiktokUrl: "https://www.tiktok.com/search?q=Aurora%20Echoes"
             },
             {
               itemId: "hash_cozy",
@@ -707,8 +709,18 @@ export function createServer() {
 export const server = createServer();
 
 // Auto-start only if executed directly via node CLI
-if (process.argv[1] && import.meta.filename === process.argv[1]) {
+if (process.argv[1] && (import.meta.filename === process.argv[1] || __filename === path.resolve(process.argv[1]))) {
+  try {
+    if (repository.getStats().trendCount === 0) {
+      const initial = await fetchExternalTrendingFeed("mock", { scale: 100 });
+      repository.insertBatch(initial.records);
+    }
+  } catch (e) {
+    // Non-fatal init fallback
+  }
+
   server.listen(PORT, () => {
     console.log(`[TrendTok Analytics] Server running at http://localhost:${PORT}/ (Spec v2.1)`);
   });
 }
+

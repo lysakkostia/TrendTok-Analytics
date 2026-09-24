@@ -24,7 +24,7 @@ function getMockTrendingRecords() {
       previousViews: 90000,
       previousVideos: 120,
       hashtags: ["#espresso", "#popmusic", "#summerhit", "#fyp"],
-      tiktokUrl: "https://www.tiktok.com/music/-712398471928374",
+      tiktokUrl: "https://www.tiktok.com/search?q=Sabrina%20Carpenter%20Espresso",
       timestamp: t1,
       previousTimestamp: t0
     },
@@ -37,7 +37,7 @@ function getMockTrendingRecords() {
       previousViews: 310000,
       previousVideos: 360,
       hashtags: ["#milliondollarbaby", "#viralbeat", "#dancechallenge"],
-      tiktokUrl: "https://www.tiktok.com/music/-718491823749123",
+      tiktokUrl: "https://www.tiktok.com/search?q=Tommy%20Richman%20Million%20Dollar%20Baby",
       timestamp: t1,
       previousTimestamp: t0
     },
@@ -50,7 +50,7 @@ function getMockTrendingRecords() {
       previousViews: 52000,
       previousVideos: 75,
       hashtags: ["#gataonly", "#reggaeton", "#trenddance"],
-      tiktokUrl: "https://www.tiktok.com/music/-719823749128374",
+      tiktokUrl: "https://www.tiktok.com/search?q=FloyyMenor%20Cris%20MJ%20Gata%20Only",
       timestamp: t1,
       previousTimestamp: t0
     },
@@ -63,7 +63,7 @@ function getMockTrendingRecords() {
       previousViews: 6800,
       previousVideos: 15,
       hashtags: ["#chill", "#lofi"],
-      tiktokUrl: "https://www.tiktok.com/music/-710928374615243",
+      tiktokUrl: "https://www.tiktok.com/search?q=Rainy%20Cafe%20Lo%20Fi%20Study",
       timestamp: t1,
       previousTimestamp: t0
     },
@@ -255,6 +255,7 @@ export function generateHighScaleCorpus(targetScale = 1000) {
         tags.push(HASHTAG_BANK[(i + t * 5) % HASHTAG_BANK.length]);
       }
 
+      const cleanTitle = title.replace(/[—–-]/g, " ").replace(/\s+/g, " ").trim();
       records.push({
         itemId: soundId,
         type: "sound",
@@ -265,7 +266,7 @@ export function generateHighScaleCorpus(targetScale = 1000) {
         previousViews: prevViews,
         previousVideos: prevVideos,
         hashtags: tags,
-        tiktokUrl: `https://www.tiktok.com/music/-${soundId.replace("sound_", "")}`, // REQ-FR-14
+        tiktokUrl: `https://www.tiktok.com/search?q=${encodeURIComponent(cleanTitle)}`, // REQ-FR-14
         timestamp: t1,
         previousTimestamp: t0
       });

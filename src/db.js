@@ -78,6 +78,30 @@ export function initDatabase(dbPath = ":memory:") {
 }
 
 /**
+ * Builds canonical, robust TikTok URL for sounds or hashtags (REQ-FR-14).
+ * Ensures sounds without verified live IDs route via TikTok search to prevent 404s.
+ * 
+ * @param {Object} rec
+ * @returns {string}
+ */
+export function buildCanonicalTikTokUrl(rec) {
+  if (!rec) return "https://www.tiktok.com";
+  const externalUrl = rec.external_url || rec.tiktokUrl;
+  if (externalUrl && !externalUrl.includes("/music/-sound_") && !externalUrl.includes("/music/-712398471928374") && !externalUrl.includes("/music/-718491823749123") && !externalUrl.includes("/music/-719823749128374") && !externalUrl.includes("/music/-710928374615243")) {
+    return externalUrl;
+  }
+  if (rec.type === "hashtag") {
+    const cleanTag = (rec.title || rec.itemId || rec.id || "").replace(/^#/, "").trim();
+    return `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
+  }
+  const cleanTitle = (rec.title || rec.author || rec.itemId || rec.id || "trending sound")
+    .replace(/[—–-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `https://www.tiktok.com/search?q=${encodeURIComponent(cleanTitle)}`;
+}
+
+/**
  * Repository wrapper providing typed, safe analytical query operations over SQLite.
  */
 export class TrendRepository {
@@ -177,16 +201,7 @@ export class TrendRepository {
     try {
       for (const rec of records) {
         // Determine canonical TikTok external URL (REQ-FR-14)
-        let externalUrl = rec.external_url || rec.tiktokUrl;
-        if (!externalUrl) {
-          if (rec.type === "hashtag") {
-            const cleanTag = (rec.title || rec.itemId).replace(/^#/, "");
-            externalUrl = `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
-          } else {
-            const soundId = rec.itemId.replace(/^sound_/, "");
-            externalUrl = `https://www.tiktok.com/music/-${encodeURIComponent(soundId)}`;
-          }
-        }
+        const externalUrl = buildCanonicalTikTokUrl(rec);
 
         this.upsertTrend({
           id: rec.itemId,
@@ -273,10 +288,10 @@ export class TrendRepository {
       delta24h = Math.max(0, latest.totalVideos - sn[0].totalVideos);
     }
 
-    // Noise guardrail
-    const guardrail = checkNoiseGuardrail({
+    // Noise guardrail check (REQ-FR-02)
+    const passesGuard = checkNoiseGuardrail({
       totalViews: latest.totalViews,
-      deltaVideos1h: delta1h,
+      deltaVideos: delta1h,
       type: trend.type
     });
 
@@ -284,11 +299,30 @@ export class TrendRepository {
     let acceleration = 0.0;
     let status = "NOISE";
 
-    if (guardrail.pass) {
-      const vvsResult = calculateMultiWindowVVS(sn, trend.type);
-      vvs = vvsResult.vvs;
-      acceleration = vvsResult.acceleration;
-      status = determineLifecycleStatus({ vvs, acceleration, type: trend.type });
+    if (passesGuard) {
+      vvs = calculateMultiWindowVVS({
+        type: trend.type,
+        totalViews: latest.totalViews,
+        window1h: delta1h,
+        window6h: sn.length >= 6 ? delta6h : undefined,
+        window24h: sn.length >= 24 ? delta24h : undefined
+      });
+
+      // Acceleration: second derivative (delta1h - delta_prev1h)
+      if (sn.length >= 3) {
+        const prevDelta1h = Math.max(0, sn[sn.length - 2].totalVideos - sn[sn.length - 3].totalVideos);
+        acceleration = delta1h - prevDelta1h;
+      } else {
+        // With 2 snapshots, assume positive momentum proportional to velocity
+        acceleration = delta1h > 0 ? 5.0 : 0.0;
+      }
+
+      status = determineLifecycleStatus({
+        vvs,
+        acceleration,
+        passesGuardrail: passesGuard,
+        velocity1h: delta1h
+      });
     }
 
     // Saturation horizon prediction (REQ-FR-11)
@@ -304,12 +338,16 @@ export class TrendRepository {
       historyDeltas.push(Math.max(0, sn[i].totalVideos - sn[i - 1].totalVideos));
     }
 
+    if (historyDeltas.length === 0 && delta1h > 0) {
+      historyDeltas.push(0, delta1h);
+    }
+
     return {
       id: trend.id,
       type: trend.type,
       title: trend.title,
       author: trend.author,
-      tiktokUrl: trend.external_url,
+      tiktokUrl: trend.external_url || buildCanonicalTikTokUrl(trend),
       vvs,
       status,
       hourlyVelocity: delta1h,
@@ -326,18 +364,19 @@ export class TrendRepository {
   }
 
   /**
-   * Retrieves enriched trends with pagination and filtering (REQ-FR-15).
+   * Retrieves enriched trends with pagination, category filtering, and multi-column sorting (REQ-FR-15).
    * 
    * @param {Object} options
    * @param {number} [options.limit=50]
    * @param {number} [options.offset=0]
    * @param {string} [options.type] - 'sound' | 'hashtag'
-   * @param {string} [options.category] - 'all' | 'surge1h' | 'breakout6h' | 'viral24h' | 'noise' | 'saturated'
+   * @param {string} [options.category] - 'all' | 'surge1h' | 'breakout6h' | 'viral24h' | 'noise' | 'saturated' | 'sound' | 'hashtag'
    * @param {string} [options.search]
-   * @param {string} [options.sortBy='vvs'] - 'vvs' | 'velocity' | 'views' | 'acceleration'
+   * @param {string} [options.sortBy='vvs'] - 'vvs' | 'velocity' | 'type' | 'title' | 'status' | 'horizon' | 'trajectory' | 'views' | 'acceleration' | 'rank'
+   * @param {string} [options.sortOrder='desc'] - 'asc' | 'desc'
    * @returns {{ items: Array<Object>, totalCount: number, page: number, totalPages: number }}
    */
-  queryTrendsPaged({ limit = 50, offset = 0, type = null, category = "all", search = null, sortBy = "vvs" } = {}) {
+  queryTrendsPaged({ limit = 50, offset = 0, type = null, category = "all", search = null, sortBy = "vvs", sortOrder = "desc" } = {}) {
     let sql = "SELECT * FROM trends WHERE 1=1";
     const params = [];
 
@@ -373,19 +412,40 @@ export class TrendRepository {
       enriched = enriched.filter(item => item.status === "NOISE");
     } else if (category === "saturated") {
       enriched = enriched.filter(item => item.status === "SATURATED");
+    } else if (category === "sound") {
+      enriched = enriched.filter(item => item.type === "sound");
+    } else if (category === "hashtag") {
+      enriched = enriched.filter(item => item.type === "hashtag");
     }
 
-    // Sort items
-    if (sortBy === "velocity") {
-      enriched.sort((a, b) => b.hourlyVelocity - a.hourlyVelocity);
-    } else if (sortBy === "delta6h") {
-      enriched.sort((a, b) => b.delta6h - a.delta6h);
-    } else if (sortBy === "views") {
-      enriched.sort((a, b) => b.totalViews - a.totalViews);
-    } else if (sortBy === "acceleration") {
-      enriched.sort((a, b) => b.acceleration - a.acceleration);
+    // Sort items across all requested columns (REQ-FR-15)
+    const dir = String(sortOrder).toLowerCase() === "asc" ? 1 : -1;
+    const sortKey = String(sortBy).toLowerCase();
+
+    if (sortKey === "velocity" || sortKey === "hourlyvelocity") {
+      enriched.sort((a, b) => dir * ((a.hourlyVelocity ?? 0) - (b.hourlyVelocity ?? 0)));
+    } else if (sortKey === "type") {
+      enriched.sort((a, b) => dir * String(a.type || "").localeCompare(String(b.type || "")));
+    } else if (sortKey === "title" || sortKey === "name") {
+      enriched.sort((a, b) => dir * String(a.title || a.id).localeCompare(String(b.title || b.id)));
+    } else if (sortKey === "status") {
+      enriched.sort((a, b) => dir * String(a.status || "").localeCompare(String(b.status || "")));
+    } else if (sortKey === "horizon") {
+      enriched.sort((a, b) => dir * ((a.saturationPrediction?.hoursToPeak ?? 0) - (b.saturationPrediction?.hoursToPeak ?? 0)));
+    } else if (sortKey === "trajectory" || sortKey === "delta24h") {
+      enriched.sort((a, b) => dir * ((a.delta24h ?? 0) - (b.delta24h ?? 0)));
+    } else if (sortKey === "delta6h") {
+      enriched.sort((a, b) => dir * ((a.delta6h ?? 0) - (b.delta6h ?? 0)));
+    } else if (sortKey === "views" || sortKey === "totalviews") {
+      enriched.sort((a, b) => dir * ((a.totalViews ?? 0) - (b.totalViews ?? 0)));
+    } else if (sortKey === "acceleration") {
+      enriched.sort((a, b) => dir * ((a.acceleration ?? 0) - (b.acceleration ?? 0)));
+    } else if (sortKey === "rank") {
+      // By default rank is determined by VVS descending
+      enriched.sort((a, b) => dir * ((a.vvs ?? 0) - (b.vvs ?? 0)));
     } else {
-      enriched.sort((a, b) => b.vvs - a.vvs);
+      // Default: sort by VVS
+      enriched.sort((a, b) => dir * ((a.vvs ?? 0) - (b.vvs ?? 0)));
     }
 
     const totalCount = enriched.length;

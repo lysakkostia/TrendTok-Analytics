@@ -36,17 +36,19 @@ In accordance with **Specification-Driven Development (SDD)**, every production 
 | **Predictive trajectory & saturation calculus** | `REQ-FR-11` (Predictive Trajectory & Saturation) | Mathematical assertion on saturation hours | `test/trendScorer: saturation-prediction` | `src/trendScorer.js` (`predictSaturationWindow`) | **VERIFIED (PASS)** |
 | **Native SQLite multi-tier persistence** | `REQ-FR-12` (SQLite Store & 7d Retention) | Contract: `GET /api/trends/:id/detail` & SQLite queries | `test/storage: sqlite-multi-tier-retention` | `src/db.js`, `src/index.js` | **VERIFIED (PASS)** |
 | **High-scale corpus ingestion (1,000–2,500+)** | `REQ-FR-13` (High-Scale Trend Corpus) | Ingestion benchmark of 1,000+ items across stages | `test/ingestion: high-scale-corpus-generation` | `src/ingestionClient.js` | **VERIFIED (PASS)** |
-| **Direct TikTok deep-linking architecture** | `REQ-FR-14` (Direct TikTok Links) | URL formatting contract validation | `test/api: tiktok-deep-links` | `src/public/dashboard.js`, `src/index.js` | **VERIFIED (PASS)** |
-| **Scalable UI with pagination & categories** | `REQ-FR-15` (Pagination & Deep Inspector) | DOM rendering and page size switcher assertions | `test/api: paginated-trends-query` | `src/public/dashboard.js`, `src/public/index.html` | **VERIFIED (PASS)** |
+| **Direct TikTok deep-linking architecture** | `REQ-FR-14` (Direct TikTok Search/Deep Links) | URL formatting contract validation (zero 404s) | `test/api: tiktok-deep-links` | `src/public/dashboard.js`, `src/db.js`, `src/ingestionClient.js`, `src/index.js` | **VERIFIED (PASS)** |
+| **Scalable UI with pagination & categories** | `REQ-FR-15` (Pagination, Categories & Multi-Column Sorting) | DOM rendering, page size switcher, and sort assertions | `test/api: paginated-trends-query` | `src/public/dashboard.js`, `src/public/index.html`, `src/db.js` | **VERIFIED (PASS)** |
+| **Enterprise SaaS UI aesthetics & typography** | `REQ-NFR-05` (Clean Typography & Zero Emojis) | UI static review and CSS badge verification | `test/api: ui-dashboard-serving` | `src/public/index.html`, `src/public/dashboard.css`, `src/public/dashboard.js` | **VERIFIED (PASS)** |
 
 ---
 
 ## 3. Coverage Analysis Summary
 
 * **Total Functional Requirements (FR):** 15
-* **Total Non-Functional Requirements (NFR):** 4
-* **Requirements with Automated Test Coverage:** 19 / 19 (100% targeted)
+* **Total Non-Functional Requirements (NFR):** 5
+* **Requirements with Automated Test Coverage:** 20 / 20 (100% targeted)
 * **Orphaned Requirements:** 0
 * **Unjustified Code Modules:** 0
+
 
 

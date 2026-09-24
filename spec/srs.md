@@ -263,20 +263,22 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   3. Guarantees deterministic data integrity and non-negative metric deltas.
 
 #### REQ-FR-14: Direct TikTok Deep-Linking Architecture
-* **Description**: The system shall generate and expose canonical, direct TikTok URLs for all tracked sounds and hashtags.
+* **Description**: The system shall generate and expose canonical, direct TikTok URLs for all tracked sounds and hashtags, guaranteeing 100% accessible landing pages without 404 errors.
 * **Deep-Link Specifications**:
-  * Audio sound: `https://www.tiktok.com/music/-${soundId}` with fallback search `https://www.tiktok.com/search?q=${encodeURIComponent(title)}`.
+  * Audio sound: `https://www.tiktok.com/search?q=${encodeURIComponent(title)}` (or direct `/music/-${soundId}` when verified live audio ID is provided). Synthetic or mock sound IDs must route through TikTok search to avoid "Couldn't find this sound" 404 errors.
   * Hashtag: `https://www.tiktok.com/tag/${cleanTag}`.
 * **Acceptance Criteria**:
   1. API payload schemas for `/api/trends` and `/api/trends/:id/detail` must include the `tiktokUrl` attribute.
-  2. UI dashboard renders track titles, identifiers, and hashtag correlation tags as clickable links opening in a new tab (`target="_blank"` with `rel="noopener noreferrer"`).
+  2. All sound links must successfully resolve to TikTok audio or TikTok search results without 404 not found errors.
+  3. UI dashboard renders track titles, identifiers, and hashtag correlation tags as clickable links opening in a new tab (`target="_blank"` with `rel="noopener noreferrer"`).
 
-#### REQ-FR-15: Scalable Creator UI with Pagination & Category Metric Views
-* **Description**: The web dashboard shall support high-scale browsing of thousands of trends without DOM lag through switchable pagination and specialized category metric tabs.
+#### REQ-FR-15: Scalable Creator UI with Pagination, Category Views & Multi-Column Sorting
+* **Description**: The web dashboard shall support high-scale browsing of thousands of trends without DOM lag through switchable pagination, specialized category metric tabs, and full interactive multi-column sorting.
 * **Acceptance Criteria**:
   1. Page size switcher allowing the user to select `25`, `50`, or `100` tracks per page with next/previous controls.
-  2. Category metric tabs: `All Trends`, `⚡ 1h Rapid Surge`, `🚀 6h Breakout`, `🔥 24h Sustained Viral`, `🆕 Just Uploaded (Noise Floor)`, `⏸ Saturated`.
-  3. Interactive "Trend Deep Inspector" modal / view displaying full 1h/6h/24h comparisons, complete historical timeseries, and associated viral hashtag cluster.
+  2. Category metric tabs with clean typography: `All Trends`, `1h Surge`, `6h Breakout`, `24h Viral`, `Just Uploaded`, `Saturated`, `Audios`, `Hashtags`.
+  3. Interactive "Trend Deep Inspector" modal displaying full 1h/6h/24h comparisons, complete historical timeseries, and associated viral hashtag cluster.
+  4. Interactive column header sorting on all data fields: `Rank`, `Type`, `Trend Name`, `Virality Score (VVS)`, `Hourly Velocity`, `Lifecycle Phase`, `Opportunity Horizon`, and `24h Trajectory`, toggling between ascending and descending order.
 
 ---
 
@@ -295,7 +297,10 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   `{ "error": "VALIDATION_ERROR", "message": "...", "timestamp": "..." }`.
 
 #### REQ-NFR-04: Testability & 100% Contract Traceability
-* Every requirement clause (`REQ-FR-01` through `REQ-FR-07`) must map to at least one automated test in `tests/` and an entry in `spec/traceability_matrix.md`.
+* Every requirement clause (`REQ-FR-01` through `REQ-FR-15`) must map to at least one automated test in `tests/` and an entry in `spec/traceability_matrix.md`.
+
+#### REQ-NFR-05: Enterprise SaaS UI & Typography Standard
+* The web user interface shall adhere to a clean, professional, enterprise SaaS design standard (Linear/Stripe-inspired). Playful emojis and informal stickers in user-facing text, buttons, and badges are strictly prohibited. Visual state distinctions must be conveyed through clean typographic hierarchy, micro-badges, and structured CSS color tokens.
 
 ---
 
