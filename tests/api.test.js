@@ -174,7 +174,7 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
   });
 
   // ==========================================
-  // REQ-FR-10: Pluggable External Feed Ingestion Engine
+  // REQ-FR-10 & REQ-FR-13: Pluggable & High-Scale Ingestion
   // ==========================================
   await t.test("POST /api/ingest/fetch ingests external trending tracks (REQ-FR-10)", async () => {
     const res = await makeRequest("/api/ingest/fetch?provider=mock", { method: "POST" });
@@ -183,4 +183,38 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.equal(res.body.provider, "mock");
     assert.ok(res.body.ingestedCount >= 3);
   });
+
+  await t.test("POST /api/ingest/fetch?scale=1000 scales corpus to 1,000 items (REQ-FR-13)", async () => {
+    const res = await makeRequest("/api/ingest/fetch?provider=mock&scale=1000", { method: "POST" });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.status, "success");
+    assert.equal(res.body.ingestedCount, 1000);
+  });
+
+  // ==========================================
+  // REQ-FR-12 & REQ-FR-14: SQLite Trend Detail & TikTok Deep Links
+  // ==========================================
+  await t.test("GET /api/trends/:id/detail returns full timeseries and TikTok URL (REQ-FR-12, REQ-FR-14)", async () => {
+    const res = await makeRequest("/api/trends/sound_espresso/detail");
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.id, "sound_espresso");
+    assert.ok(res.body.tiktokUrl.includes("tiktok.com"));
+    assert.ok(Array.isArray(res.body.snapshots));
+    assert.ok(res.body.snapshots.length >= 1);
+  });
+
+  // ==========================================
+  // REQ-FR-15: Paginated Trends Query & Categories
+  // ==========================================
+  await t.test("GET /api/trends?limit=25&page=1 returns structured pagination (REQ-FR-15)", async () => {
+    const res = await makeRequest("/api/trends?limit=25&page=1");
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.body.items, "Should have items array");
+    assert.equal(res.body.items.length, 25);
+    assert.equal(res.body.page, 1);
+    assert.equal(res.body.limit, 25);
+    assert.ok(res.body.totalCount >= 1000);
+    assert.ok(res.body.totalPages >= 40);
+  });
 });
+
