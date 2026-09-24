@@ -29,9 +29,17 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
           let data = "";
           res.on("data", chunk => { data += chunk; });
           res.on("end", () => {
+            let parsed = null;
+            try {
+              parsed = data ? JSON.parse(data) : null;
+            } catch {
+              parsed = null;
+            }
             resolve({
               statusCode: res.statusCode,
-              body: data ? JSON.parse(data) : null
+              headers: res.headers,
+              body: parsed,
+              rawBody: data
             });
           });
         }
@@ -110,5 +118,58 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.equal(goodRes.statusCode, 201);
     assert.equal(goodRes.body.status, "success");
     assert.equal(goodRes.body.ingestedCount, 1);
+  });
+
+  // ==========================================
+  // REQ-FR-08: Interactive Web Dashboard (UI)
+  // ==========================================
+  await t.test("GET / with Accept text/html serves Web Dashboard HTML (REQ-FR-08)", async () => {
+    const res = await makeRequest("/", {
+      headers: { Accept: "text/html,application/xhtml+xml" }
+    });
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.headers["content-type"].includes("text/html"));
+    assert.ok(res.rawBody.includes("TrendTok Analytics"));
+    assert.ok(res.rawBody.includes("id=\"leaderboard\""));
+  });
+
+  await t.test("GET /dashboard.css serves dashboard stylesheets (REQ-FR-08)", async () => {
+    const res = await makeRequest("/dashboard.css");
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.headers["content-type"].includes("text/css"));
+    assert.ok(res.rawBody.includes("--bg-primary"));
+  });
+
+  await t.test("GET /dashboard.js serves client application script (REQ-FR-08)", async () => {
+    const res = await makeRequest("/dashboard.js");
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.headers["content-type"].includes("javascript"));
+    assert.ok(res.rawBody.includes("loadDashboard"));
+  });
+
+  // ==========================================
+  // REQ-FR-09: Simulation Controller
+  // ==========================================
+  await t.test("POST /api/simulation/step advances simulation time by 1 hour (REQ-FR-09)", async () => {
+    const res = await makeRequest("/api/simulation/step", { method: "POST" });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.status, "stepped");
+    assert.ok(res.body.steppedItems >= 1);
+    assert.ok(res.body.simulatedTimestamp);
+  });
+
+  await t.test("POST /api/simulation/inject creates custom anomaly trend (REQ-FR-09)", async () => {
+    const res = await makeRequest("/api/simulation/inject", {
+      method: "POST",
+      body: {
+        scenario: "viral_spike",
+        itemId: "sound_hypersonic",
+        type: "sound",
+        title: "Hypersonic Beat"
+      }
+    });
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.status, "injected");
+    assert.equal(res.body.item.id, "sound_hypersonic");
   });
 });
