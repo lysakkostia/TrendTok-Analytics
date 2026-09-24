@@ -2,7 +2,7 @@
 ## Conforming to ISO/IEC/IEEE 42010:2011 & Kruchten 4+1 View Model
 
 **System Name:** TrendTok Analytics  
-**Version:** 2.2.0  
+**Version:** 2.3.0  
 **Specification Reference:** SRS-TRENDTOK-2026-V2  
 **Author:** Lysak Kostiantyn (IV Year, Group KN-32)  
 **Organization:** Igor Sikorsky Kyiv Polytechnic Institute (KPI), Department of System Design  
@@ -274,4 +274,8 @@ All components and algorithms in this architecture description are mapped direct
 * **`REQ-FR-09`**: Interactive Simulation Controller (`src/index.js`).
 * **`REQ-FR-10`**: Pluggable Live Feed Ingestion Adapter (`src/ingestionClient.js`).
 * **`REQ-FR-11`**: Predictive Trajectory & Saturation Horizon Engine (`src/trendScorer.js`).
+* **`REQ-FR-12`**: Native Embedded SQLite Multi-Tier Persistence & 7d Retention (`src/db.js`, `data/trendtok.db`).
+* **`REQ-FR-13`**: High-Scale Corpus Generator & Ingestion (1,000–2,500+ Items) (`src/ingestionClient.js`).
+* **`REQ-FR-14`**: Direct TikTok Deep-Linking Architecture (`src/public/dashboard.js`, `src/index.js`).
+* **`REQ-FR-15`**: Scalable Dashboard with Pagination (25/50/100) & Deep-Dive Telemetry Inspector (`src/public/`).
 * **`REQ-NFR-01` .. `REQ-NFR-04`**: Latency, TTL Bounding, Error Handling, Pure Functions (`src/trendScorer.js`, `scripts/gate-verify.js`).
