@@ -172,4 +172,15 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.equal(res.body.status, "injected");
     assert.equal(res.body.item.id, "sound_hypersonic");
   });
+
+  // ==========================================
+  // REQ-FR-10: Pluggable External Feed Ingestion Engine
+  // ==========================================
+  await t.test("POST /api/ingest/fetch ingests external trending tracks (REQ-FR-10)", async () => {
+    const res = await makeRequest("/api/ingest/fetch?provider=mock", { method: "POST" });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.status, "success");
+    assert.equal(res.body.provider, "mock");
+    assert.ok(res.body.ingestedCount >= 3);
+  });
 });

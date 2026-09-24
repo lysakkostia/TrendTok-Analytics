@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calculateViralityScore,
@@ -6,6 +6,7 @@ import {
   calculateWindowVelocity,
   calculateMultiWindowVVS,
   determineLifecycleStatus,
+  predictSaturationWindow,
   NOISE_THRESHOLDS
 } from "../src/trendScorer.js";
 
@@ -174,4 +175,41 @@ test("Performance Benchmark (REQ-NFR-01): VVS calculus executes in under 0.5ms",
   const totalElapsedMs = performance.now() - startTime;
   const avgMsPerCall = totalElapsedMs / iterations;
   assert.ok(avgMsPerCall < 0.5, `Expected < 0.5ms per call, got ${avgMsPerCall}ms`);
+});
+
+// ==========================================
+// 6. Predictive Saturation Calculus (REQ-FR-11)
+// ==========================================
+test("predictSaturationWindow: forecasts remaining hours to peak for surging audio", () => {
+  // Sound ceiling = 200 v/h, current velocity = 80 v/h, acceleration = 20 v/h^2
+  // delta = (200 - 80) / 20 = 6.0 hours
+  const result = predictSaturationWindow({
+    velocity1h: 80,
+    acceleration: 20,
+    type: "sound"
+  });
+
+  assert.equal(result.hoursToPeak, 6.0);
+  assert.equal(result.opportunityLevel, "SURGING");
+  assert.ok(result.opportunityWindow.includes("6.0h remaining"));
+});
+
+test("predictSaturationWindow: handles saturated and decelerating items correctly", () => {
+  // Sound at or beyond ceiling (210 v/h >= 200)
+  const peakResult = predictSaturationWindow({
+    velocity1h: 210,
+    acceleration: 10,
+    type: "sound"
+  });
+  assert.equal(peakResult.hoursToPeak, 0.0);
+  assert.equal(peakResult.opportunityLevel, "PEAK");
+
+  // Decelerating sound (acceleration <= 0)
+  const plateauResult = predictSaturationWindow({
+    velocity1h: 90,
+    acceleration: -5,
+    type: "sound"
+  });
+  assert.equal(plateauResult.hoursToPeak, 0.0);
+  assert.equal(plateauResult.opportunityLevel, "PLATEAU");
 });
