@@ -50,6 +50,7 @@ function setupEventListeners() {
   // Ingestion & Simulation Actions
   document.getElementById("btn-ingest-1000")?.addEventListener("click", () => handleIngestScale(1000));
   document.getElementById("btn-ingest-2500")?.addEventListener("click", () => handleIngestScale(2500));
+  document.getElementById("btn-reset-db")?.addEventListener("click", handleResetDatabase);
   document.getElementById("btn-fetch-live")?.addEventListener("click", handleFetchLive);
   document.getElementById("btn-seed")?.addEventListener("click", handleSeed);
   document.getElementById("btn-quick-seed")?.addEventListener("click", handleSeed);
@@ -372,10 +373,10 @@ function renderTable() {
 
     // TikTok Direct Deep-Link (REQ-FR-14)
     let tiktokUrl = item.tiktokUrl;
-    if (!tiktokUrl || tiktokUrl.includes("/music/-sound_")) {
+    if (!tiktokUrl || tiktokUrl.includes("/music/-sound_") || tiktokUrl.includes("/tag/")) {
       if (item.type === "hashtag") {
         const cleanTag = (item.title || item.id).replace(/^#/, "");
-        tiktokUrl = `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
+        tiktokUrl = `https://www.tiktok.com/search?q=%23${encodeURIComponent(cleanTag)}`;
       } else {
         const cleanQuery = (item.title || item.id).replace(/[—–-]/g, " ").replace(/\s+/g, " ").trim();
         tiktokUrl = `https://www.tiktok.com/search?q=${encodeURIComponent(cleanQuery)}`;
@@ -520,7 +521,7 @@ async function openTrendDetail(trendId) {
     if (tagsList) {
       if (d.correlatedHashtags && d.correlatedHashtags.length > 0) {
         tagsList.innerHTML = d.correlatedHashtags.map(t => `
-          <a href="https://www.tiktok.com/tag/${encodeURIComponent(t.replace("#", ""))}" target="_blank" rel="noopener noreferrer" class="tag-item">
+          <a href="https://www.tiktok.com/search?q=%23${encodeURIComponent(t.replace("#", ""))}" target="_blank" rel="noopener noreferrer" class="tag-item">
             ${escapeHtml(t)} ↗
           </a>
         `).join(" ");
@@ -615,7 +616,7 @@ async function inspectCorrelations(soundId) {
         </div>
         <div class="tag-list">
           ${data.correlatedHashtags.map(tag => `
-            <a href="https://www.tiktok.com/tag/${encodeURIComponent(tag.replace('#', ''))}" target="_blank" rel="noopener noreferrer" class="tag-item" title="Click to view on TikTok">
+            <a href="https://www.tiktok.com/search?q=%23${encodeURIComponent(tag.replace('#', ''))}" target="_blank" rel="noopener noreferrer" class="tag-item" title="Click to view on TikTok">
               ${escapeHtml(tag)} ↗
             </a>
           `).join("")}
@@ -642,8 +643,9 @@ async function inspectCorrelations(soundId) {
  * Handles high-scale ingestion (1,000 or 2,500 items, REQ-FR-13).
  * 
  * @param {number} scale
+ * @param {boolean} [clean=false]
  */
-async function handleIngestScale(scale = 1000) {
+async function handleIngestScale(scale = 1000, clean = false) {
   const btn = document.getElementById(scale === 2500 ? "btn-ingest-2500" : "btn-ingest-1000");
   const origText = btn ? btn.innerHTML : "";
   if (btn) {
@@ -652,7 +654,7 @@ async function handleIngestScale(scale = 1000) {
   }
 
   try {
-    const res = await fetch(`/api/ingest/fetch?provider=mock&scale=${scale}`, {
+    const res = await fetch(`/api/ingest/fetch?provider=mock&scale=${scale}${clean ? "&clean=true" : ""}`, {
       method: "POST"
     });
     const data = await res.json();
@@ -665,6 +667,35 @@ async function handleIngestScale(scale = 1000) {
     }
   } catch (err) {
     showToast(`Network error: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
+  }
+}
+
+/**
+ * Resets database and re-seeds clean high-scale corpus.
+ */
+async function handleResetDatabase() {
+  const btn = document.getElementById("btn-reset-db");
+  const origText = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Resetting Database...`;
+  }
+
+  try {
+    const res = await fetch("/api/simulation/reset", { method: "POST" });
+    if (res.ok) {
+      showToast("Database wiped. Populating clean 1,000 corpus...");
+      await handleIngestScale(1000, true);
+    } else {
+      showToast("Failed to reset database.");
+    }
+  } catch (err) {
+    showToast(`Reset error: ${err.message}`);
   } finally {
     if (btn) {
       btn.disabled = false;

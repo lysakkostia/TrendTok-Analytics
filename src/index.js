@@ -352,10 +352,10 @@ export function createServer() {
 
           // Canonical TikTok URL (REQ-FR-14)
           let tiktokUrl = entry.item.tiktokUrl || entry.item.external_url;
-          if (!tiktokUrl || tiktokUrl.includes("/music/-sound_")) {
+          if (!tiktokUrl || tiktokUrl.includes("/music/-sound_") || tiktokUrl.includes("/tag/")) {
             if (entry.item.type === "hashtag") {
               const cleanTag = (entry.item.title || id).replace(/^#/, "");
-              tiktokUrl = `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
+              tiktokUrl = `https://www.tiktok.com/search?q=%23${encodeURIComponent(cleanTag)}`;
             } else {
               const query = (entry.item.title || id).replace(/[—–-]/g, " ").replace(/\s+/g, " ").trim();
               tiktokUrl = `https://www.tiktok.com/search?q=${encodeURIComponent(query)}`;
@@ -400,7 +400,7 @@ export function createServer() {
             type: entry.item.type,
             title: entry.item.title,
             tiktokUrl: entry.item.type === "hashtag"
-              ? `https://www.tiktok.com/tag/${encodeURIComponent(entry.item.title.replace(/^#/, ""))}`
+              ? `https://www.tiktok.com/search?q=%23${encodeURIComponent(entry.item.title.replace(/^#/, ""))}`
               : `https://www.tiktok.com/search?q=${encodeURIComponent((entry.item.title || entry.item.id).replace(/[—–-]/g, " ").trim())}`,
             hourlyVelocity: delta1h,
             totalViews: latest.totalViews,
@@ -431,15 +431,35 @@ export function createServer() {
       }
 
       // ==========================================
+      // Database & Memory Reset (Maintenance)
+      // ==========================================
+      if (method === "POST" && url.pathname === "/api/simulation/reset") {
+        memoryStore.clear();
+        correlationsStore.clear();
+        repository.clearAll();
+        return sendJson(res, 200, {
+          status: "reset",
+          message: "Database and memory stores successfully wiped."
+        });
+      }
+
+      // ==========================================
       // Simulation Golden Set Seeder (REQ-FR-07)
       // ==========================================
       if (method === "POST" && url.pathname === "/api/simulation/seed") {
         memoryStore.clear();
         correlationsStore.clear();
+        repository.clearAll();
 
         // Seed sound: aurora_echoes (delta1h = 130 -> VVS = 65.0 -> status EMERGING)
         memoryStore.set("sound_aurora", {
-          item: { id: "sound_aurora", type: "sound", title: "Aurora Echoes", firstDetectedAt: new Date().toISOString() },
+          item: { 
+            id: "sound_aurora", 
+            type: "sound", 
+            title: "Aurora Echoes — Nova Vibe", 
+            tiktokUrl: "https://www.tiktok.com/search?q=Aurora%20Echoes%20Nova%20Vibe",
+            firstDetectedAt: new Date().toISOString() 
+          },
           snapshots: [
             { timestamp: "2026-09-15T10:00:00.000Z", totalViews: 20000, totalVideos: 50 },
             { timestamp: "2026-09-15T11:00:00.000Z", totalViews: 28000, totalVideos: 120 },
@@ -450,7 +470,13 @@ export function createServer() {
 
         // Seed hashtag: #cozyhomevibes (Noise - below threshold: views 13500 < 25k -> status NOISE)
         memoryStore.set("hash_cozy", {
-          item: { id: "hash_cozy", type: "hashtag", title: "#cozyhomevibes", firstDetectedAt: new Date().toISOString() },
+          item: { 
+            id: "hash_cozy", 
+            type: "hashtag", 
+            title: "#cozyhomevibes", 
+            tiktokUrl: "https://www.tiktok.com/search?q=%23cozyhomevibes",
+            firstDetectedAt: new Date().toISOString() 
+          },
           snapshots: [
             { timestamp: "2026-09-15T11:00:00.000Z", totalViews: 12000, totalVideos: 40 },
             { timestamp: "2026-09-15T12:00:00.000Z", totalViews: 13500, totalVideos: 70 }
@@ -463,7 +489,7 @@ export function createServer() {
             {
               itemId: "sound_aurora",
               type: "sound",
-              title: "Aurora Echoes",
+              title: "Aurora Echoes — Nova Vibe",
               previousTimestamp: "2026-09-15T11:00:00.000Z",
               previousViews: 28000,
               previousVideos: 120,
@@ -471,7 +497,7 @@ export function createServer() {
               totalViews: 42000,
               totalVideos: 250,
               hashtags: ["#aurora", "#cinematicvibes"],
-              tiktokUrl: "https://www.tiktok.com/search?q=Aurora%20Echoes"
+              tiktokUrl: "https://www.tiktok.com/search?q=Aurora%20Echoes%20Nova%20Vibe"
             },
             {
               itemId: "hash_cozy",
@@ -483,7 +509,7 @@ export function createServer() {
               timestamp: "2026-09-15T12:00:00.000Z",
               totalViews: 13500,
               totalVideos: 70,
-              tiktokUrl: "https://www.tiktok.com/tag/cozyhomevibes"
+              tiktokUrl: "https://www.tiktok.com/search?q=%23cozyhomevibes"
             }
           ]);
         } catch (e) {
@@ -631,6 +657,13 @@ export function createServer() {
         const scaleQuery = url.searchParams.get("scale");
         const scale = scaleQuery ? parseInt(scaleQuery, 10) : null;
 
+        const cleanQuery = url.searchParams.get("clean") === "true" || url.searchParams.get("reset") === "true";
+        if (cleanQuery) {
+          memoryStore.clear();
+          correlationsStore.clear();
+          repository.clearAll();
+        }
+
         const { provider, records } = await fetchExternalTrendingFeed(providerQuery, { scale });
 
         // Batch persist to SQLite (REQ-FR-12 & REQ-FR-13)
@@ -649,7 +682,7 @@ export function createServer() {
                 type: rec.type || "sound",
                 title: rec.title || rec.itemId,
                 tiktokUrl: rec.tiktokUrl,
-                firstDetectedAt: rec.previousTimestamp || new Date().toISOString()
+                firstDetectedAt: (rec.snapshots && rec.snapshots[0]?.timestamp) || rec.previousTimestamp || new Date().toISOString()
               },
               snapshots: []
             });
@@ -657,21 +690,29 @@ export function createServer() {
 
           const entry = memoryStore.get(rec.itemId);
 
-          // Seed previous snapshot if provided
-          if (rec.previousTimestamp && typeof rec.previousViews === "number") {
+          if (Array.isArray(rec.snapshots) && rec.snapshots.length > 0) {
+            entry.snapshots = rec.snapshots.map(s => ({
+              timestamp: s.timestamp,
+              totalViews: s.totalViews,
+              totalVideos: s.totalVideos
+            }));
+          } else {
+            // Seed previous snapshot if provided
+            if (rec.previousTimestamp && typeof rec.previousViews === "number") {
+              entry.snapshots.push({
+                timestamp: rec.previousTimestamp,
+                totalViews: rec.previousViews,
+                totalVideos: rec.previousVideos
+              });
+            }
+
+            // Append current observation
             entry.snapshots.push({
-              timestamp: rec.previousTimestamp,
-              totalViews: rec.previousViews,
-              totalVideos: rec.previousVideos
+              timestamp: rec.timestamp,
+              totalViews: rec.totalViews,
+              totalVideos: rec.totalVideos
             });
           }
-
-          // Append current observation
-          entry.snapshots.push({
-            timestamp: rec.timestamp,
-            totalViews: rec.totalViews,
-            totalVideos: rec.totalVideos
-          });
 
           // Track correlations if available
           if (rec.type === "sound" && Array.isArray(rec.hashtags)) {

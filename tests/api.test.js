@@ -173,6 +173,12 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.equal(res.body.item.id, "sound_hypersonic");
   });
 
+  await t.test("POST /api/simulation/reset wipes database and memory stores", async () => {
+    const res = await makeRequest("/api/simulation/reset", { method: "POST" });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.status, "reset");
+  });
+
   // ==========================================
   // REQ-FR-10 & REQ-FR-13: Pluggable & High-Scale Ingestion
   // ==========================================

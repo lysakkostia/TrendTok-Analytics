@@ -87,7 +87,43 @@ test("SQLite Repository Suite: High-Scale Persistence & Multi-Window Granularity
     const hashtagItem = corpus.find(c => c.type === "hashtag");
 
     assert.ok(soundItem.tiktokUrl.startsWith("https://www.tiktok.com/search?q=") || soundItem.tiktokUrl.startsWith("https://www.tiktok.com/music/"));
-    assert.ok(hashtagItem.tiktokUrl.startsWith("https://www.tiktok.com/tag/"));
+    assert.ok(hashtagItem.tiktokUrl.startsWith("https://www.tiktok.com/search?q=%23") || hashtagItem.tiktokUrl.startsWith("https://www.tiktok.com/tag/"));
+  });
+
+  await t.test("Enforces monotonicity on subsequent snapshots for same trend", () => {
+    repo.upsertTrend({ id: "sound_mono_test", type: "sound", title: "Monotonic Test" });
+    
+    // Initial high snapshot
+    repo.insertSnapshot({
+      trend_id: "sound_mono_test",
+      timestamp: "2026-09-24T10:00:00.000Z",
+      total_views: 500000,
+      total_videos: 1200
+    });
+
+    // Attempted lower snapshot at later time
+    repo.insertSnapshot({
+      trend_id: "sound_mono_test",
+      timestamp: "2026-09-24T11:00:00.000Z",
+      total_views: 1500, // lower view count attempted!
+      total_videos: 10   // lower video count attempted!
+    });
+
+    const sn = repo.getSnapshots("sound_mono_test");
+    assert.equal(sn.length, 2);
+    assert.ok(sn[1].totalViews >= sn[0].totalViews, "Later snapshot totalViews must be >= previous snapshot");
+    assert.ok(sn[1].totalVideos >= sn[0].totalVideos, "Later snapshot totalVideos must be >= previous snapshot");
+  });
+
+  await t.test("Resets database cleanly via clearAll()", () => {
+    repo.upsertTrend({ id: "sound_reset_test", type: "sound", title: "Reset Sound" });
+    repo.insertSnapshot({ trend_id: "sound_reset_test", total_views: 1000, total_videos: 10 });
+    assert.equal(repo.getStats().trendCount, 1);
+
+    repo.clearAll();
+    const stats = repo.getStats();
+    assert.equal(stats.trendCount, 0);
+    assert.equal(stats.snapshotCount, 0);
   });
 
   await t.test("Supports paginated queries and category metric filtering (REQ-FR-15)", () => {

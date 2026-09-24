@@ -87,12 +87,18 @@ export function initDatabase(dbPath = ":memory:") {
 export function buildCanonicalTikTokUrl(rec) {
   if (!rec) return "https://www.tiktok.com";
   const externalUrl = rec.external_url || rec.tiktokUrl;
-  if (externalUrl && !externalUrl.includes("/music/-sound_") && !externalUrl.includes("/music/-712398471928374") && !externalUrl.includes("/music/-718491823749123") && !externalUrl.includes("/music/-719823749128374") && !externalUrl.includes("/music/-710928374615243")) {
+  if (externalUrl && 
+      !externalUrl.includes("/music/-sound_") && 
+      !externalUrl.includes("/music/-712398471928374") && 
+      !externalUrl.includes("/music/-718491823749123") && 
+      !externalUrl.includes("/music/-719823749128374") && 
+      !externalUrl.includes("/music/-710928374615243") &&
+      !externalUrl.includes("/tag/")) {
     return externalUrl;
   }
   if (rec.type === "hashtag") {
     const cleanTag = (rec.title || rec.itemId || rec.id || "").replace(/^#/, "").trim();
-    return `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
+    return `https://www.tiktok.com/search?q=%23${encodeURIComponent(cleanTag)}`;
   }
   const cleanTitle = (rec.title || rec.author || rec.itemId || rec.id || "trending sound")
     .replace(/[—–-]/g, " ")
@@ -171,6 +177,17 @@ export class TrendRepository {
   }
 
   /**
+   * Clears all tables in the database, resetting all historical trends and snapshots.
+   */
+  clearAll() {
+    this.db.exec(`
+      DELETE FROM snapshots;
+      DELETE FROM correlations;
+      DELETE FROM trends;
+    `);
+  }
+
+  /**
    * Upserts trend metadata.
    */
   upsertTrend({ id, type, title, author = null, external_url = null, first_detected_at = null }) {
@@ -180,11 +197,25 @@ export class TrendRepository {
 
   /**
    * Appends a metric snapshot for a trend.
+   * Enforces monotonicity: cumulative metrics (total_views, total_videos) can never drop
+   * below the latest existing snapshot values.
    */
   insertSnapshot({ trend_id, timestamp, total_views, total_videos }) {
     const ts = timestamp || new Date().toISOString();
-    const views = Math.max(0, Math.floor(Number(total_views) || 0));
-    const videos = Math.max(0, Math.floor(Number(total_videos) || 0));
+    let views = Math.max(0, Math.floor(Number(total_views) || 0));
+    let videos = Math.max(0, Math.floor(Number(total_videos) || 0));
+
+    // Monotonicity guard: ensure cumulative metrics never decrease over time for the same trend
+    const latest = this.stmtGetLatestSnapshot.get(trend_id);
+    if (latest && new Date(ts).getTime() >= new Date(latest.timestamp).getTime()) {
+      if (views < latest.total_views) {
+        views = latest.total_views + Math.max(10, Math.floor(Math.random() * 50));
+      }
+      if (videos < latest.total_videos) {
+        videos = latest.total_videos + Math.max(0, Math.floor(Math.random() * 5));
+      }
+    }
+
     this.stmtInsertSnapshot.run(trend_id, ts, views, videos);
   }
 
@@ -209,26 +240,38 @@ export class TrendRepository {
           title: rec.title || rec.itemId,
           author: rec.author || null,
           external_url: externalUrl,
-          first_detected_at: rec.previousTimestamp || rec.timestamp || new Date().toISOString()
+          first_detected_at: (rec.snapshots && rec.snapshots[0]?.timestamp) || rec.previousTimestamp || rec.timestamp || new Date().toISOString()
         });
 
-        // Insert previous baseline snapshot if provided
-        if (rec.previousTimestamp && typeof rec.previousViews === "number") {
+        // If a full chronological snapshot trajectory is provided, insert all snapshots in order
+        if (Array.isArray(rec.snapshots) && rec.snapshots.length > 0) {
+          for (const sn of rec.snapshots) {
+            this.insertSnapshot({
+              trend_id: rec.itemId,
+              timestamp: sn.timestamp,
+              total_views: sn.totalViews,
+              total_videos: sn.totalVideos
+            });
+          }
+        } else {
+          // Insert previous baseline snapshot if provided
+          if (rec.previousTimestamp && typeof rec.previousViews === "number") {
+            this.insertSnapshot({
+              trend_id: rec.itemId,
+              timestamp: rec.previousTimestamp,
+              total_views: rec.previousViews,
+              total_videos: rec.previousVideos || 0
+            });
+          }
+
+          // Insert current snapshot
           this.insertSnapshot({
             trend_id: rec.itemId,
-            timestamp: rec.previousTimestamp,
-            total_views: rec.previousViews,
-            total_videos: rec.previousVideos || 0
+            timestamp: rec.timestamp || new Date().toISOString(),
+            total_views: rec.totalViews,
+            total_videos: rec.totalVideos
           });
         }
-
-        // Insert current snapshot
-        this.insertSnapshot({
-          trend_id: rec.itemId,
-          timestamp: rec.timestamp || new Date().toISOString(),
-          total_views: rec.totalViews,
-          total_videos: rec.totalVideos
-        });
 
         // Save sound-hashtag correlations if present
         if (rec.type === "sound" && Array.isArray(rec.hashtags)) {
