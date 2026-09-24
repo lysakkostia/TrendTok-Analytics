@@ -10,9 +10,9 @@
  * Guarantees that every audio searched on TikTok resolves to real live creator content.
  */
 export const REAL_TIKTOK_SOUNDS = [
-  { title: "Espresso", artist: "Sabrina Carpenter", tags: ["#espresso", "#sabrinacarpenter", "#pop", "#fyp"] },
+  { title: "Espresso", artist: "Sabrina Carpenter", tags: ["#espresso", "#sabrinacarpenter", "#pop", "#summerhit"] },
   { title: "Taste", artist: "Sabrina Carpenter", tags: ["#taste", "#sabrinacarpenter", "#shortnsweet"] },
-  { title: "Please Please Please", artist: "Sabrina Carpenter", tags: ["#pleasepleaseplease", "#popmusic", "#viral"] },
+  { title: "Please Please Please", artist: "Sabrina Carpenter", tags: ["#pleasepleaseplease", "#popmusic", "#acoustic"] },
   { title: "BIRDS OF A FEATHER", artist: "Billie Eilish", tags: ["#birdsofafeather", "#billieeilish", "#hitmehardandsoft"] },
   { title: "LUNCH", artist: "Billie Eilish", tags: ["#lunch", "#billieeilish", "#music"] },
   { title: "CHIHIRO", artist: "Billie Eilish", tags: ["#chihiro", "#billieeilish", "#vibes"] },
@@ -71,9 +71,9 @@ export const REAL_TIKTOK_SOUNDS = [
   { title: "Pedro", artist: "Jaxomy, Agatino Romero & Raffaella Carrà", tags: ["#pedro", "#pedroraccoon", "#meme"] },
   { title: "Montagem Mysterious Game", artist: "LXNGVX", tags: ["#montagem", "#phonk", "#brazilianphonk"] },
   { title: "L'Amore Dice Ciao", artist: "Armando Trovajoli (Slowed)", tags: ["#lamorediceciao", "#cinematic", "#aesthetic"] },
-  { title: "Chipi Chipi Chapa Chapa", artist: "Christell", tags: ["#chipichapa", "#catmeme", "#viral"] },
+  { title: "Chipi Chipi Chapa Chapa", artist: "Christell", tags: ["#chipichapa", "#catmeme", "#wholesome"] },
   { title: "Capybara Song", artist: "Russian Boy", tags: ["#capybara", "#capybarasong", "#cute"] },
-  { title: "Original Sound - Transition Beat", artist: "@montanari_edits", tags: ["#originalsound", "#transition", "#fyp"] },
+  { title: "Original Sound - Transition Beat", artist: "@montanari_edits", tags: ["#originalsound", "#transition", "#velocityedit"] },
   { title: "Original Sound - Viral Trend Mix", artist: "@dailyvibe_studio", tags: ["#beats", "#remix", "#producer"] },
   { title: "GigaChad Theme (Phonk Remix)", artist: "g3ox_em", tags: ["#gigachad", "#phonk", "#gymtok"] },
   { title: "Automotivo Bibi Fogosa", artist: "Bibi Babydoll & DJ Brunin XM", tags: ["#funk", "#automotivo", "#dance"] },
@@ -99,10 +99,10 @@ export const TRACK_VARIATIONS = [
 ];
 
 /**
- * Curated list of verified viral TikTok hashtags.
+ * Curated list of verified topical & breakout TikTok hashtags (Evergreen #fyp/#viral/#trending excluded).
  */
 export const REAL_TIKTOK_HASHTAGS = [
-  "#fyp", "#foryou", "#foryoupage", "#viral", "#trending",
+  "#squidgame2", "#gta6trailer", "#severances2", "#arcane2", "#championsleague",
   "#tiktokmademebuyit", "#booktok", "#filmtok", "#fitnesstok", "#cooktok",
   "#beautytok", "#animetok", "#gamertok", "#dancechallenge", "#comedy",
   "#ootd", "#traveltiktok", "#skincare", "#memes", "#storytime",

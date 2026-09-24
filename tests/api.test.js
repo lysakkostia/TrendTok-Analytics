@@ -261,5 +261,31 @@ test("API Suite: Ingestion, Queries, and Golden Set Simulation", async (t) => {
     assert.equal(mainHealth.statusCode, 200);
     assert.ok(mainHealth.body.trackedItems >= 1000, "Main DB should remain untouched by test lab seed");
   });
+
+  // ==========================================
+  // REQ-FR-17 & REQ-FR-18: Forecasting, Backtesting & 1-2-3 Triad API
+  // ==========================================
+  await t.test("GET /api/trends/:id/forecast returns trajectory forecast, backtest accuracy, and 1-2-3 triad", async () => {
+    const res = await makeRequest("/api/trends/sound_espresso/forecast");
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.body.forecast, "Should include forecast object");
+    assert.equal(res.body.forecast.modelType, "damped_logistic_sound");
+    assert.ok(res.body.backtest, "Should include backtest object");
+    assert.ok(res.body.triadRecommendation, "Should include triadRecommendation object");
+    assert.equal(res.body.triadRecommendation.triad.length, 3);
+    assert.ok(!res.body.triadRecommendation.triad.includes("#fyp"));
+  });
+
+  await t.test("POST /api/analytics/evolve runs evolutionary hyperparameter tuning over repository series", async () => {
+    const res = await makeRequest("/api/analytics/evolve", {
+      method: "POST",
+      body: { entityType: "sound", generations: 6, populationSize: 10, seed: 77 }
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.status, "evolved");
+    assert.equal(res.body.entityType, "sound");
+    assert.ok(res.body.bestFitness >= res.body.baselineFitness);
+    assert.ok(res.body.bestChromosome.w1 > 0);
+  });
 });
 

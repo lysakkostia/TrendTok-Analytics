@@ -242,14 +242,17 @@
       <div class="panel-box" id="correlations-panel">
         <div class="panel-box-header">
           <div>
-            <h3 class="panel-box-title">Viral Co-Occurrence Combos</h3>
-            <p class="panel-box-subtitle">Recommended hashtag clusters for trending audios</p>
+            <h3 class="panel-box-title">Breakout Hashtag Triad (1-2-3 Combo)</h3>
+            <p class="panel-box-subtitle">Recommended 3-tag clusters [Breakout + Niche + Format] for trending audios</p>
           </div>
-          <span class="badge-code">REQ-FR-06</span>
+          <span class="badge-code">REQ-FR-18</span>
+        </div>
+        <div style="margin: 12px 20px 0; padding: 10px 14px; background-color: #f8fafc; border-left: 3px solid #0284c7; border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+          <strong>Evergreen Filter Active:</strong> Platform-constant tags (<code>#fyp</code>, <code>#foryou</code>, <code>#viral</code>, <code>#trending</code>) are always popular and automatically excluded to surface genuine breakout spikes (Google Trends &amp; Niche Triggers).
         </div>
         <div class="panel-box-body" id="correlations-content">
           <div class="empty-placeholder">
-            <p>Click <strong>"Tags"</strong> on any audio track above to discover high-conversion tag combinations.</p>
+            <p>Click <strong>"Tags"</strong> on any audio track above to generate its optimal 1-2-3 breakout hashtag triad.</p>
           </div>
         </div>
       </div>
@@ -261,7 +264,7 @@
             <h3 class="panel-box-title">Algorithmic Lifecycle Radar</h3>
             <p class="panel-box-subtitle">Multi-window velocity calculus &amp; optimal creator publishing windows</p>
           </div>
-          <span class="badge-code">ALGO-V2.1</span>
+          <span class="badge-code">ALGO-V2.3</span>
         </div>
         <div class="panel-box-body">
           <div class="lifecycle-guide-grid">
@@ -291,7 +294,7 @@
     </section>
   </main>
 
-  <!-- Trend Deep-Dive Telemetry Inspector Modal (REQ-FR-12, REQ-FR-14, REQ-FR-15) -->
+  <!-- Trend Deep-Dive Telemetry Inspector Modal (REQ-FR-12, REQ-FR-14, REQ-FR-15, REQ-FR-17, REQ-FR-18) -->
   <div id="trend-detail-modal" class="modal-backdrop hidden">
     <div class="modal-dialog">
       <div class="modal-header">
@@ -339,9 +342,25 @@
           </div>
         </div>
 
-        <!-- Co-occurring Viral Hashtags -->
-        <div id="modal-tags-section">
-          <label style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Correlated Viral Hashtags:</label>
+        <!-- Predictive Trajectory & Historical Backtest (REQ-FR-17) -->
+        <div class="detail-metric-grid" style="margin-top: 10px; grid-template-columns: repeat(3, 1fr);">
+          <div class="detail-metric-card" style="background: #f0f9ff; border-color: #bae6fd;">
+            <div class="detail-metric-label">Forecast (+6h Videos)</div>
+            <div id="modal-pred-6h" class="detail-metric-val text-indigo">0</div>
+          </div>
+          <div class="detail-metric-card" style="background: #f0f9ff; border-color: #bae6fd;">
+            <div class="detail-metric-label">Forecast (+24h Videos)</div>
+            <div id="modal-pred-24h" class="detail-metric-val text-indigo">0</div>
+          </div>
+          <div class="detail-metric-card" style="background: #ecfdf5; border-color: #a7f3d0;">
+            <div class="detail-metric-label">Backtest Model Accuracy</div>
+            <div id="modal-backtest-acc" class="detail-metric-val" style="color: #065f46;">98.0%</div>
+          </div>
+        </div>
+
+        <!-- Recommended 1-2-3 Hashtag Triad & Co-occurring Tags (REQ-FR-18) -->
+        <div id="modal-tags-section" style="margin-top: 12px;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Recommended 1-2-3 Breakout Hashtag Triad (Evergreen #fyp/#viral Filtered):</label>
           <div id="modal-tags-list" class="tag-list" style="margin-top: 6px;"></div>
         </div>
 

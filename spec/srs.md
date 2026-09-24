@@ -280,6 +280,26 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   3. Interactive "Trend Deep Inspector" modal displaying full 1h/6h/24h comparisons, complete historical timeseries, and associated viral hashtag cluster.
   4. Interactive column header sorting on all data fields: `Rank`, `Type`, `Trend Name`, `Virality Score (VVS)`, `Hourly Velocity`, `Lifecycle Phase`, `Opportunity Horizon`, and `24h Trajectory`, toggling between ascending and descending order.
 
+#### REQ-FR-16: Decoupled Data Collectors, Google Trends Breakout Feed & Evergreen Stop-List
+* **Description**: Data aggregation for music tracks and breakout hashtags shall be encapsulated in standalone collector modules (`src/collectors/*`) decoupled from the HTTP request lifecycle, enforcing an Evergreen Stop-List to filter out constant platform tags.
+* **Acceptance Criteria**:
+  1. Evergreen platform tags (`#fyp`, `#foryou`, `#foryoupage`, `#viral`, `#trending`, `#tiktok`, `#xyzbca`) must be excluded by `src/collectors/stopWords.js` before persistence or correlation indexing.
+  2. `src/collectors/hashtagCollector.js` parses real-time breakout search spikes from Google Trends RSS/XML feeds (`trends.google.com/trending/rss`) and normalizes surging queries into topical hashtags with associated related sub-tags.
+  3. `src/collectors/musicCollector.js` aggregates trending music tracks from open chart feeds (Apple Music / iTunes RSS & Creative Center) independent of the web server.
+
+#### REQ-FR-17: Dual Time-Series Forecasting & Evolutionary Parameter Tuning
+* **Description**: The analytics engine shall provide separate mathematical forecasting models for Music (`soundForecaster`) and Breakout Hashtags (`hashtagForecaster`), along with an evolutionary (genetic) algorithm (`evolutionaryTuner`) to optimize scoring weights on historical backtest time-series.
+* **Acceptance Criteria**:
+  1. `src/analytics/soundForecaster.js` models sound adoption using damped logistic diffusion (S-curve) to forecast `+6h` and `+24h` video volume, peak velocity, and backtest accuracy (MAPE).
+  2. `src/analytics/hashtagForecaster.js` models topical hashtag spikes using impulse-response exponential smoothing tuned for rapid 48h–96h breakout lifecycles.
+  3. `src/analytics/evolutionaryTuner.js` implements population initialization, fitness evaluation (minimizing backtest MAPE on historical snapshots), tournament selection, crossover, and Gaussian mutation to evolve optimal parameter chromosomes separately for `sound` and `hashtag` entities.
+
+#### REQ-FR-18: Breakout Hashtag Triad (1-2-3 Combo) Recommendation Engine
+* **Description**: The system shall generate a 3-hashtag combination (`[Tag 1: Primary Breakout, Tag 2: Niche Context, Tag 3: Format/Momentum]`) for tracked sounds and trends, strictly free of evergreen spam tags.
+* **Acceptance Criteria**:
+  1. Pure deterministic recommender in `src/analytics/triadRecommender.js` returning exactly 3 distinct, non-stopword hashtags ranked by co-occurrence velocity and topical synergy.
+  2. Exposed via API (`GET /api/trends/:id/detail` and `GET /api/trends/:id/forecast`) and displayed in the UI with an explicit note explaining that generic tags (`#fyp`, `#viral`, `#trending`) are filtered out.
+
 ---
 
 ### 3.2 Non-Functional Requirements (NFR)

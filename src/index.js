@@ -17,6 +17,11 @@ import {
 } from "./trendScorer.js";
 import { fetchExternalTrendingFeed } from "./ingestionClient.js";
 import { initDatabase, TrendRepository } from "./db.js";
+import { forecastSoundTrajectory, backtestSoundForecast } from "./analytics/soundForecaster.js";
+import { forecastHashtagSpike, backtestHashtagForecast } from "./analytics/hashtagForecaster.js";
+import { evolveForecasterWeights } from "./analytics/evolutionaryTuner.js";
+import { recommendHashtagTriad } from "./analytics/triadRecommender.js";
+import { runCollectionCycle } from "./collectors/collectorWorker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -443,12 +448,12 @@ export function createServer() {
       }
 
       // ==========================================
-      // Trend Deep-Dive Telemetry & History (REQ-FR-12 & REQ-FR-14)
+      // Trend Deep-Dive Telemetry, Forecast & Triad (REQ-FR-12, REQ-FR-14, REQ-FR-17, REQ-FR-18)
       // ==========================================
-      const detailMatch = url.pathname.match(/^\/api\/(test\/)?trends\/([^/]+)\/detail$/);
+      const detailMatch = url.pathname.match(/^\/api\/(test\/)?trends\/([^/]+)\/(detail|forecast)$/);
       if (method === "GET" && detailMatch) {
         const isTest = Boolean(detailMatch[1]);
-        const itemId = detailMatch[2];
+        const itemId = decodeURIComponent(detailMatch[2]);
         const activeRepo = isTest ? testRepository : repository;
         const activeMem = isTest ? testMemoryStore : memoryStore;
         const activeCorr = isTest ? testCorrelationsStore : correlationsStore;
@@ -465,7 +470,7 @@ export function createServer() {
             type: entry.item.type,
             title: entry.item.title,
             tiktokUrl: entry.item.type === "hashtag"
-              ? `https://www.tiktok.com/search?q=%23${encodeURIComponent(entry.item.title.replace(/^#/, ""))}`
+              ? `https://www.tiktok.com/tag/${encodeURIComponent(entry.item.title.replace(/^#/, ""))}`
               : `https://www.tiktok.com/search?q=${encodeURIComponent((entry.item.title || entry.item.id).replace(/[—–-]/g, " ").trim())}`,
             hourlyVelocity: delta1h,
             totalViews: latest.totalViews,
@@ -477,7 +482,87 @@ export function createServer() {
         if (!detail) {
           return sendJson(res, 404, { error: "NOT_FOUND", message: `Trend ${itemId} not found.` });
         }
-        return sendJson(res, 200, detail);
+
+        // Compute entity-specific forecast & backtest (REQ-FR-17)
+        const snSeries = Array.isArray(detail.snapshots) ? detail.snapshots : [];
+        const isHashtag = detail.type === "hashtag";
+        const forecast = isHashtag
+          ? forecastHashtagSpike(snSeries)
+          : forecastSoundTrajectory(snSeries);
+        const backtest = isHashtag
+          ? backtestHashtagForecast(snSeries, 2)
+          : backtestSoundForecast(snSeries, 2);
+
+        // Compute 1-2-3 Breakout Hashtag Triad (REQ-FR-18)
+        const triadRecommendation = recommendHashtagTriad({
+          item: detail,
+          correlatedTags: detail.correlatedHashtags || []
+        });
+
+        return sendJson(res, 200, {
+          ...detail,
+          forecast,
+          backtest,
+          triadRecommendation
+        });
+      }
+
+      // ==========================================
+      // Evolutionary Hyperparameter Tuning Endpoint (REQ-FR-17)
+      // ==========================================
+      if (method === "POST" && (url.pathname === "/api/analytics/evolve" || url.pathname === "/api/test/analytics/evolve")) {
+        const isTest = url.pathname.includes("/test");
+        const activeRepo = isTest ? testRepository : repository;
+        const body = await parseJsonBody(req);
+        const entityType = body.entityType === "hashtag" ? "hashtag" : "sound";
+        const generations = Math.min(40, Math.max(3, Number(body.generations) || 12));
+        const populationSize = Math.min(40, Math.max(6, Number(body.populationSize) || 16));
+
+        // Gather historical snapshot series from repository
+        const paged = activeRepo.queryTrendsPaged({
+          limit: 40,
+          offset: 0,
+          type: entityType
+        });
+        const seriesList = [];
+        for (const t of paged.items.slice(0, 25)) {
+          const sn = activeRepo.getSnapshots(t.id);
+          if (Array.isArray(sn) && sn.length >= 4) {
+            seriesList.push(sn);
+          }
+        }
+
+        const evolutionResult = evolveForecasterWeights({
+          entityType,
+          historicalSeriesList: seriesList,
+          populationSize,
+          generations,
+          seed: Number(body.seed) || 42
+        });
+
+        return sendJson(res, 200, {
+          status: "evolved",
+          ...evolutionResult
+        });
+      }
+
+      // ==========================================
+      // Standalone Collector Cycle Trigger (REQ-FR-16)
+      // ==========================================
+      if (method === "POST" && (url.pathname === "/api/collect/run" || url.pathname === "/api/test/collect/run")) {
+        const isTest = url.pathname.includes("/test");
+        const activeRepo = isTest ? testRepository : repository;
+        const summary = await runCollectionCycle({
+          repository: activeRepo,
+          geos: ["US", "UA"]
+        });
+        return sendJson(res, 200, {
+          status: "collected",
+          targetDatabase: isTest ? "test" : "main",
+          musicCount: summary.musicCount,
+          hashtagCount: summary.hashtagCount,
+          providers: summary.providers
+        });
       }
 
       // ==========================================

@@ -38,15 +38,18 @@ In accordance with **Specification-Driven Development (SDD)**, every production 
 | **High-scale corpus ingestion (1,000–2,500+)** | `REQ-FR-13` (High-Scale Trend Corpus) | Ingestion benchmark of 1,000+ items across stages | `test/ingestion: high-scale-corpus-generation` | `src/ingestionClient.js` | **VERIFIED (PASS)** |
 | **Direct TikTok deep-linking architecture** | `REQ-FR-14` (Direct TikTok Search/Deep Links) | URL formatting contract validation (zero 404s) | `test/api: tiktok-deep-links` | `src/public/dashboard.js`, `src/db.js`, `src/ingestionClient.js`, `src/index.js` | **VERIFIED (PASS)** |
 | **Scalable UI with pagination & categories** | `REQ-FR-15` (Pagination, Categories & Multi-Column Sorting) | DOM rendering, page size switcher, and sort assertions | `test/api: paginated-trends-query` | `src/public/dashboard.js`, `src/public/index.html`, `src/db.js` | **VERIFIED (PASS)** |
+| **Decoupled collectors & evergreen stop-list** | `REQ-FR-16` (Decoupled Collectors & Google Trends RSS) | Stop-word pruning & Google Trends XML parsing | `test/collectors: stop-words-and-rss` | `src/collectors/stopWords.js`, `src/collectors/hashtagCollector.js`, `src/collectors/musicCollector.js` | **VERIFIED (PASS)** |
+| **Dual forecasting & evolutionary tuning** | `REQ-FR-17` (Sound/Hashtag Forecasters & Genetic Tuner) | Backtest MAPE & evolutionary generation convergence | `test/forecasting: dual-models-and-ga` | `src/analytics/soundForecaster.js`, `src/analytics/hashtagForecaster.js`, `src/analytics/evolutionaryTuner.js` | **VERIFIED (PASS)** |
+| **Hashtag Triad 1-2-3 Recommendation** | `REQ-FR-18` (Breakout Hashtag Triad 1-2-3 Engine) | Non-stopword 3-tag combo generation | `test/forecasting: triad-recommender` | `src/analytics/triadRecommender.js`, `src/index.js`, `src/public/dashboard.js` | **VERIFIED (PASS)** |
 | **Enterprise SaaS UI aesthetics & typography** | `REQ-NFR-05` (Clean Typography & Zero Emojis) | UI static review and CSS badge verification | `test/api: ui-dashboard-serving` | `src/public/index.html`, `src/public/dashboard.css`, `src/public/dashboard.js` | **VERIFIED (PASS)** |
 
 ---
 
 ## 3. Coverage Analysis Summary
 
-* **Total Functional Requirements (FR):** 15
+* **Total Functional Requirements (FR):** 18
 * **Total Non-Functional Requirements (NFR):** 5
-* **Requirements with Automated Test Coverage:** 20 / 20 (100% targeted)
+* **Requirements with Automated Test Coverage:** 23 / 23 (100% targeted)
 * **Orphaned Requirements:** 0
 * **Unjustified Code Modules:** 0
 
