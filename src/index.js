@@ -16,6 +16,7 @@ import {
   predictSaturationWindow
 } from "./trendScorer.js";
 import { fetchExternalTrendingFeed } from "./ingestionClient.js";
+import { initDatabase, TrendRepository } from "./db.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,8 +24,12 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 
 const PORT = process.env.PORT || 3000;
 
+const defaultDbPath = process.env.NODE_ENV === "test" ? ":memory:" : (process.env.DB_PATH || path.join(__dirname, "..", "data", "trendtok.db"));
+export const db = initDatabase(defaultDbPath);
+export const repository = new TrendRepository(db);
+
 /**
- * In-Memory Store (Single Source of Transient State)
+ * In-Memory Store (Single Source of Transient State & Fast Mirror)
  * @type {Map<string, { item: Object, snapshots: Array<Object> }>}
  */
 export const memoryStore = new Map();
@@ -94,21 +99,22 @@ export function createServer() {
           // Otherwise return API discovery catalog (backward-compatible)
           return sendJson(res, 200, {
             service: "TrendTok Analytics",
-            version: "2.2.0",
+            version: "2.3.0",
             specification: "SRS-TRENDTOK-2026-V2",
             description: "Real-Time TikTok Viral Content Intelligence Web Service",
             author: "Lysak Kostiantyn (KN-32)",
             endpoints: {
               "GET /": "Web Dashboard (browser) or API index (json)",
               "GET /api/health": "Health telemetry & uptime",
-              "GET /api/trends": "All tracked trends (supports ?type=sound|hashtag)",
+              "GET /api/trends": "All tracked trends (supports ?limit=50&page=1&category=...)",
+              "GET /api/trends/:id/detail": "Deep-dive trend telemetry, 1h/6h/24h comparisons & snapshots",
               "GET /api/trends/emerging": "Emerging viral trends (VVS >= 50, acceleration > 0)",
               "GET /api/trends/:id/correlations": "Sound + hashtag co-occurrence correlations",
               "POST /api/snapshots": "Ingest metric snapshots",
               "POST /api/simulation/seed": "Seed Golden Set test data",
               "POST /api/simulation/step": "Advance simulation time by 1 hour",
               "POST /api/simulation/inject": "Inject anomaly spike (viral or noise)",
-              "POST /api/ingest/fetch": "Live external TikTok feed ingestion adapter"
+              "POST /api/ingest/fetch": "Live & high-scale feed ingestion (supports ?scale=1000)"
             }
           });
         }
@@ -134,12 +140,14 @@ export function createServer() {
       // Telemetry Endpoint (REQ-FR-01 / Health)
       // ==========================================
       if (method === "GET" && (url.pathname === "/health" || url.pathname === "/api/health")) {
+        const stats = repository.getStats();
         return sendJson(res, 200, {
           status: "ok",
           service: "TrendTok Analytics",
-          version: "2.2.0",
+          version: "2.3.0",
           specification: "SRS-TRENDTOK-2026-V2",
-          trackedItems: memoryStore.size,
+          trackedItems: Math.max(memoryStore.size, stats.trendCount),
+          databaseSnapshots: stats.snapshotCount,
           uptime: process.uptime()
         });
       }
@@ -262,10 +270,39 @@ export function createServer() {
       }
 
       // ==========================================
-      // All Trends List with Analytics & Deltas (REQ-FR-05 & REQ-FR-08)
+      // All Trends List with Analytics & Deltas (REQ-FR-05, REQ-FR-08, REQ-FR-15)
       // ==========================================
       if (method === "GET" && url.pathname === "/api/trends") {
         const typeFilter = url.searchParams.get("type");
+        const isPagedQuery = url.searchParams.has("limit") || url.searchParams.has("page") || url.searchParams.has("category") || url.searchParams.has("search") || url.searchParams.has("paged");
+
+        if (isPagedQuery) {
+          const limitParam = url.searchParams.get("limit");
+          const pageParam = url.searchParams.get("page");
+          const category = url.searchParams.get("category") || "all";
+          const search = url.searchParams.get("search");
+          const sortBy = url.searchParams.get("sortBy") || "vvs";
+
+          const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 50;
+          const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+          const offset = (page - 1) * limit;
+
+          const pagedResult = repository.queryTrendsPaged({
+            limit,
+            offset,
+            type: typeFilter,
+            category,
+            search,
+            sortBy
+          });
+
+          // If SQLite has data, return structured pagination
+          if (pagedResult.totalCount > 0 || repository.getStats().trendCount > 0) {
+            return sendJson(res, 200, pagedResult);
+          }
+        }
+
+        // Backward-compatible array response
         const list = [];
 
         for (const [id, entry] of memoryStore.entries()) {
@@ -311,10 +348,23 @@ export function createServer() {
             type: entry.item.type
           });
 
+          // Canonical TikTok URL (REQ-FR-14)
+          let tiktokUrl = entry.item.tiktokUrl || entry.item.external_url;
+          if (!tiktokUrl) {
+            if (entry.item.type === "hashtag") {
+              const cleanTag = (entry.item.title || id).replace(/^#/, "");
+              tiktokUrl = `https://www.tiktok.com/tag/${encodeURIComponent(cleanTag)}`;
+            } else {
+              const soundId = id.replace(/^sound_/, "");
+              tiktokUrl = `https://www.tiktok.com/music/-${encodeURIComponent(soundId)}`;
+            }
+          }
+
           list.push({
             id: entry.item.id,
             type: entry.item.type,
             title: entry.item.title,
+            tiktokUrl,
             vvs,
             status,
             hourlyVelocity: delta1h,
@@ -328,6 +378,39 @@ export function createServer() {
 
         list.sort((a, b) => b.vvs - a.vvs);
         return sendJson(res, 200, list);
+      }
+
+      // ==========================================
+      // Trend Deep-Dive Telemetry & History (REQ-FR-12 & REQ-FR-14)
+      // ==========================================
+      const detailMatch = url.pathname.match(/^\/api\/trends\/([^/]+)\/detail$/);
+      if (method === "GET" && detailMatch) {
+        const itemId = detailMatch[1];
+        let detail = repository.getTrendDetail(itemId);
+        if (!detail && memoryStore.has(itemId)) {
+          const entry = memoryStore.get(itemId);
+          const sn = entry.snapshots || [];
+          const latest = sn[sn.length - 1] || { totalViews: 0, totalVideos: 0 };
+          const prev = sn.length >= 2 ? sn[sn.length - 2] : latest;
+          const delta1h = Math.max(0, latest.totalVideos - prev.totalVideos);
+          detail = {
+            id: entry.item.id,
+            type: entry.item.type,
+            title: entry.item.title,
+            tiktokUrl: entry.item.type === "hashtag"
+              ? `https://www.tiktok.com/tag/${encodeURIComponent(entry.item.title.replace(/^#/, ""))}`
+              : `https://www.tiktok.com/music/-${encodeURIComponent(entry.item.id.replace(/^sound_/, ""))}`,
+            hourlyVelocity: delta1h,
+            totalViews: latest.totalViews,
+            totalVideos: latest.totalVideos,
+            snapshots: sn,
+            correlatedHashtags: correlationsStore.has(itemId) ? Array.from(correlationsStore.get(itemId)) : []
+          };
+        }
+        if (!detail) {
+          return sendJson(res, 404, { error: "NOT_FOUND", message: `Trend ${itemId} not found.` });
+        }
+        return sendJson(res, 200, detail);
       }
 
       // ==========================================
@@ -371,6 +454,39 @@ export function createServer() {
             { timestamp: "2026-09-15T12:00:00.000Z", totalViews: 13500, totalVideos: 70 }
           ]
         });
+
+        // Mirror to SQLite repository (REQ-FR-12)
+        try {
+          repository.insertBatch([
+            {
+              itemId: "sound_aurora",
+              type: "sound",
+              title: "Aurora Echoes",
+              previousTimestamp: "2026-09-15T11:00:00.000Z",
+              previousViews: 28000,
+              previousVideos: 120,
+              timestamp: "2026-09-15T12:00:00.000Z",
+              totalViews: 42000,
+              totalVideos: 250,
+              hashtags: ["#aurora", "#cinematicvibes"],
+              tiktokUrl: "https://www.tiktok.com/music/-sound_aurora"
+            },
+            {
+              itemId: "hash_cozy",
+              type: "hashtag",
+              title: "#cozyhomevibes",
+              previousTimestamp: "2026-09-15T11:00:00.000Z",
+              previousViews: 12000,
+              previousVideos: 40,
+              timestamp: "2026-09-15T12:00:00.000Z",
+              totalViews: 13500,
+              totalVideos: 70,
+              tiktokUrl: "https://www.tiktok.com/tag/cozyhomevibes"
+            }
+          ]);
+        } catch (e) {
+          // ignore in tests
+        }
 
         return sendJson(res, 200, {
           status: "seeded",
@@ -506,11 +622,21 @@ export function createServer() {
       }
 
       // ==========================================
-      // Live External Feed Ingestion Engine (REQ-FR-10)
+      // Live External Feed Ingestion Engine (REQ-FR-10, REQ-FR-13, REQ-FR-14)
       // ==========================================
       if (method === "POST" && url.pathname === "/api/ingest/fetch") {
         const providerQuery = url.searchParams.get("provider") || "creative_center";
-        const { provider, records } = await fetchExternalTrendingFeed(providerQuery);
+        const scaleQuery = url.searchParams.get("scale");
+        const scale = scaleQuery ? parseInt(scaleQuery, 10) : null;
+
+        const { provider, records } = await fetchExternalTrendingFeed(providerQuery, { scale });
+
+        // Batch persist to SQLite (REQ-FR-12 & REQ-FR-13)
+        try {
+          repository.insertBatch(records);
+        } catch (e) {
+          // ignore or log
+        }
 
         let ingested = 0;
         for (const rec of records) {
@@ -520,6 +646,7 @@ export function createServer() {
                 id: rec.itemId,
                 type: rec.type || "sound",
                 title: rec.title || rec.itemId,
+                tiktokUrl: rec.tiktokUrl,
                 firstDetectedAt: rec.previousTimestamp || new Date().toISOString()
               },
               snapshots: []

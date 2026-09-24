@@ -1,24 +1,28 @@
 /**
  * TrendTok Analytics - User-Centric Creator & SMM Dashboard Application
  * Light-theme modern SaaS interface with slide-over simulation sandbox.
- * Implements REQ-FR-08 (Web Dashboard) and REQ-FR-09 (Simulation Controller)
+ * Implements REQ-FR-08 (Dashboard), REQ-FR-12 (SQLite Detail), REQ-FR-14 (Deep-Links), and REQ-FR-15 (Pagination & Categories).
  */
 
 let allTrendsData = [];
 let activeFilter = "all";
 let searchQuery = "";
+let currentPage = 1;
+let pageSize = 50;
+let totalTrendsCount = 0;
+let totalPages = 1;
 
 // Initialize on DOM ready
 document.addEventListener("DOMContentLoaded", () => {
   loadDashboard();
   setupEventListeners();
 
-  // Background telemetry refresher (every 6 seconds)
-  setInterval(loadTelemetryOnly, 6000);
+  // Background telemetry refresher (every 8 seconds)
+  setInterval(loadTelemetryOnly, 8000);
 });
 
 /**
- * Attaches user interaction and sandbox event listeners.
+ * Attaches user interaction, pagination, modal, and sandbox event listeners.
  */
 function setupEventListeners() {
   // Sandbox Drawer Toggle
@@ -41,7 +45,9 @@ function setupEventListeners() {
   sandboxClose?.addEventListener("click", closeDrawer);
   drawerBackdrop?.addEventListener("click", closeDrawer);
 
-  // Simulation Actions
+  // Ingestion & Simulation Actions
+  document.getElementById("btn-ingest-1000")?.addEventListener("click", () => handleIngestScale(1000));
+  document.getElementById("btn-ingest-2500")?.addEventListener("click", () => handleIngestScale(2500));
   document.getElementById("btn-fetch-live")?.addEventListener("click", handleFetchLive);
   document.getElementById("btn-seed")?.addEventListener("click", handleSeed);
   document.getElementById("btn-quick-seed")?.addEventListener("click", handleSeed);
@@ -60,22 +66,64 @@ function setupEventListeners() {
     showToast(`Copied ${soundId} to clipboard!`);
   });
 
-  // Filter Chips
+  // Category Metric Tabs (REQ-FR-15)
   const filterChips = document.querySelectorAll(".filter-chip");
   filterChips.forEach(chip => {
     chip.addEventListener("click", () => {
       filterChips.forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
       activeFilter = chip.dataset.filter;
-      renderTable();
+      currentPage = 1;
+      loadTrendsData();
     });
   });
 
   // Search input
   const searchInp = document.getElementById("search-input");
+  let searchDebounce = null;
   searchInp?.addEventListener("input", (e) => {
-    searchQuery = e.target.value.toLowerCase().trim();
-    renderTable();
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      currentPage = 1;
+      loadTrendsData();
+    }, 250);
+  });
+
+  // Page Size Buttons (REQ-FR-15)
+  document.querySelectorAll(".page-size-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      pageSize = Number(btn.dataset.size) || 50;
+      currentPage = 1;
+      loadTrendsData();
+    });
+  });
+
+  // Prev / Next Pagination Controls (REQ-FR-15)
+  document.getElementById("btn-prev-page")?.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadTrendsData();
+    }
+  });
+
+  document.getElementById("btn-next-page")?.addEventListener("click", () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      loadTrendsData();
+    }
+  });
+
+  // Detail Modal Close Handlers (REQ-FR-12 & REQ-FR-15)
+  const modal = document.getElementById("trend-detail-modal");
+  const modalCloseBtn = document.getElementById("btn-close-modal");
+  modalCloseBtn?.addEventListener("click", () => {
+    modal?.classList.add("hidden");
+  });
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      modal.classList.add("hidden");
+    }
   });
 
   // Manual Ingest form
@@ -122,79 +170,98 @@ async function loadTelemetry() {
     const sec = Math.floor(data.uptime || 0);
     uptimeEl.textContent = sec > 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`;
   }
-  if (totalKpiEl) totalKpiEl.textContent = data.trackedItems ?? 0;
+  if (totalKpiEl) totalKpiEl.textContent = (data.trackedItems ?? 0).toLocaleString();
 }
 
 /**
- * Fetches full trends dataset with snapshots and lifecycle calculations.
+ * Fetches trends dataset with pagination, categories, and SQLite queries (REQ-FR-15).
  */
 async function loadTrendsData() {
-  const res = await fetch("/api/trends");
+  const pagedUrl = `/api/trends?limit=${pageSize}&page=${currentPage}&category=${activeFilter}&search=${encodeURIComponent(searchQuery)}`;
+  const res = await fetch(pagedUrl);
   if (!res.ok) {
     throw new Error(`Failed to load trends: ${res.status}`);
   }
-  allTrendsData = await res.json();
+  const data = await res.json();
 
-  // Also query emerging list to guarantee exact alignment
-  const emergingRes = await fetch("/api/trends/emerging");
-  const emergingData = emergingRes.ok ? await emergingRes.json() : [];
-  const emergingIds = new Set(emergingData.map(item => item.id));
+  if (Array.isArray(data)) {
+    // Backward-compatible flat array
+    allTrendsData = data;
+    totalTrendsCount = data.length;
+    totalPages = Math.max(1, Math.ceil(totalTrendsCount / pageSize));
+  } else {
+    // Structured pagination response (REQ-FR-15)
+    allTrendsData = data.items || [];
+    totalTrendsCount = data.totalCount ?? allTrendsData.length;
+    totalPages = Math.max(1, data.totalPages ?? 1);
+    currentPage = data.page ?? 1;
+  }
 
-  // Merge emerging flag
-  allTrendsData.forEach(item => {
-    item.isEmerging = emergingIds.has(item.id);
-  });
-
-  updateKpis(allTrendsData, emergingData);
+  updatePaginationUi();
+  updateKpis(allTrendsData);
   updateSpotlight(allTrendsData);
   renderTable();
 }
 
 /**
- * Updates KPI Summary Cards based on dataset.
+ * Updates pagination bar elements.
  */
-function updateKpis(allTrends, emerging) {
-  const total = allTrends.length;
-  const emergingCount = emerging.length;
+function updatePaginationUi() {
+  const startEl = document.getElementById("page-start");
+  const endEl = document.getElementById("page-end");
+  const totalEl = document.getElementById("total-trends-count");
+  const currEl = document.getElementById("current-page");
+  const totPagesEl = document.getElementById("total-pages");
+  const prevBtn = document.getElementById("btn-prev-page");
+  const nextBtn = document.getElementById("btn-next-page");
 
+  const start = totalTrendsCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalTrendsCount);
+
+  if (startEl) startEl.textContent = start.toLocaleString();
+  if (endEl) endEl.textContent = end.toLocaleString();
+  if (totalEl) totalEl.textContent = totalTrendsCount.toLocaleString();
+  if (currEl) currEl.textContent = currentPage;
+  if (totPagesEl) totPagesEl.textContent = totalPages;
+
+  if (prevBtn) prevBtn.disabled = currentPage <= 1;
+  if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+
+  document.querySelectorAll(".page-size-btn").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.dataset.size) === pageSize);
+  });
+}
+
+/**
+ * Updates KPI Summary Cards based on current dataset.
+ */
+function updateKpis(items) {
   let peakVvs = 0;
   let noiseCount = 0;
-  let soundCount = 0;
-  let hashCount = 0;
+  let emergingCount = 0;
 
-  allTrends.forEach(item => {
+  items.forEach(item => {
     if (item.vvs > peakVvs) peakVvs = item.vvs;
     if (item.status === "NOISE") noiseCount++;
-    if (item.type === "sound") soundCount++;
-    if (item.type === "hashtag") hashCount++;
+    if (item.status === "EMERGING") emergingCount++;
   });
 
-  const noiseRate = total > 0 ? Math.round((noiseCount / total) * 100) : 0;
+  const noiseRate = items.length > 0 ? Math.round((noiseCount / items.length) * 100) : 0;
 
   const kpiEmerging = document.getElementById("kpi-emerging");
   const kpiPeakVvs = document.getElementById("kpi-peak-vvs");
   const kpiNoiseRate = document.getElementById("kpi-noise-rate");
 
-  const countAll = document.getElementById("count-all");
-  const countEmerging = document.getElementById("count-emerging");
-  const countSound = document.getElementById("count-sound");
-  const countHashtag = document.getElementById("count-hashtag");
-
   if (kpiEmerging) kpiEmerging.textContent = emergingCount;
   if (kpiPeakVvs) kpiPeakVvs.textContent = peakVvs.toFixed(1);
   if (kpiNoiseRate) kpiNoiseRate.textContent = `${noiseRate}%`;
-
-  if (countAll) countAll.textContent = total;
-  if (countEmerging) countEmerging.textContent = emergingCount;
-  if (countSound) countSound.textContent = soundCount;
-  if (countHashtag) countHashtag.textContent = hashCount;
 }
 
 /**
  * Updates the Spotlight Card with the highest ranking emerging audio.
  */
-function updateSpotlight(allTrends) {
-  const featured = allTrends.find(item => item.type === "sound" && item.isEmerging) || allTrends[0];
+function updateSpotlight(items) {
+  const featured = items.find(item => item.type === "sound" && item.status === "EMERGING") || items[0];
   if (!featured) return;
 
   const titleEl = document.getElementById("featured-title");
@@ -204,50 +271,42 @@ function updateSpotlight(allTrends) {
 
   if (titleEl) titleEl.textContent = featured.title || featured.id;
   if (idEl) idEl.textContent = featured.id;
-  if (vvsEl) vvsEl.textContent = `${featured.vvs.toFixed(1)} / 100`;
+  if (vvsEl) vvsEl.textContent = `${Number(featured.vvs || 0).toFixed(1)} / 100`;
   if (velEl) velEl.textContent = `+${featured.hourlyVelocity ?? 0} v/hr`;
 }
 
 /**
- * Renders the filtered and searched leaderboard table.
+ * Renders the leaderboard table with clickable TikTok links (REQ-FR-14) and inspector buttons.
  */
 function renderTable() {
   const tbody = document.getElementById("leaderboard-body");
   if (!tbody) return;
 
-  let filtered = allTrendsData.filter(item => {
-    if (activeFilter === "emerging" && !item.isEmerging) return false;
-    if (activeFilter === "sound" && item.type !== "sound") return false;
-    if (activeFilter === "hashtag" && item.type !== "hashtag") return false;
-
-    if (searchQuery) {
-      const matchId = (item.id || "").toLowerCase().includes(searchQuery);
-      const matchTitle = (item.title || "").toLowerCase().includes(searchQuery);
-      return matchId || matchTitle;
-    }
-    return true;
-  });
-
-  if (filtered.length === 0) {
+  if (!allTrendsData || allTrendsData.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="9" class="table-loading">
-          No trends matched your filter or search criteria.
+          No trends found matching category <strong>"${escapeHtml(activeFilter)}"</strong> or search query.
         </td>
       </tr>
     `;
     return;
   }
 
-  tbody.innerHTML = filtered.map((item, index) => {
-    const rank = index + 1;
+  tbody.innerHTML = allTrendsData.map((item, index) => {
+    const rank = (currentPage - 1) * pageSize + index + 1;
     const rankClass = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
     const typeIcon = item.type === "sound" ? "🎵" : "#️⃣";
     const status = item.status || "NOISE";
-    const vvs = (item.vvs || 0).toFixed(1);
-    const hourlyVelocity = item.hourlyVelocity ?? (item.snapshotsCount > 1 ? "—" : "0");
+    const vvs = Number(item.vvs || 0).toFixed(1);
+    const hourlyVelocity = item.hourlyVelocity ?? "0";
     const accel = item.acceleration !== undefined ? `${item.acceleration > 0 ? "+" : ""}${Number(item.acceleration).toFixed(1)}` : "—";
-    const sparkline = renderSparklineSvg(item.historyDeltas || [0, Math.round(item.vvs)]);
+    const sparkline = renderSparklineSvg(item.historyDeltas || [0, Math.round(item.vvs || 0)]);
+
+    // TikTok Direct Deep-Link (REQ-FR-14)
+    const tiktokUrl = item.tiktokUrl || (item.type === "hashtag"
+      ? `https://www.tiktok.com/tag/${encodeURIComponent((item.title || item.id).replace(/^#/, ""))}`
+      : `https://www.tiktok.com/music/-${encodeURIComponent(item.id.replace(/^sound_/, ""))}`);
 
     const pred = item.saturationPrediction || {
       opportunityLevel: "PLATEAU",
@@ -272,15 +331,20 @@ function renderTable() {
         </td>
         <td>
           <div style="display: flex; flex-direction: column;">
-            <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(item.title || item.id)}</span>
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted);">${escapeHtml(item.id)}</span>
+            <a href="${tiktokUrl}" target="_blank" rel="noopener noreferrer" class="tiktok-link" title="Open official audio/tag page on TikTok">
+              <span>${escapeHtml(item.title || item.id)}</span>
+              <span class="external-icon">↗</span>
+            </a>
+            <a href="${tiktokUrl}" target="_blank" rel="noopener noreferrer" class="tiktok-sublink">
+              ${escapeHtml(item.id)}
+            </a>
           </div>
         </td>
         <td>
           <div class="vvs-wrapper">
             <span class="vvs-num">${vvs}</span>
             <div class="vvs-track">
-              <div class="vvs-bar" style="width: ${Math.min(100, Math.max(0, item.vvs))}%"></div>
+              <div class="vvs-bar" style="width: ${Math.min(100, Math.max(0, item.vvs || 0))}%"></div>
             </div>
           </div>
         </td>
@@ -301,14 +365,17 @@ function renderTable() {
         <td>
           ${sparkline}
         </td>
-        <td style="text-align: right;">
+        <td style="text-align: right; white-space: nowrap;">
+          <button class="btn btn-outline-sm btn-deep-dive" data-id="${escapeHtml(item.id)}" title="Inspect 1h/6h/24h metrics and full history">
+            📊 Detail
+          </button>
           ${item.type === "sound" ? `
-            <button class="btn btn-outline-sm btn-inspect" data-sound-id="${escapeHtml(item.id)}">
-              View Hashtags
+            <button class="btn btn-outline-sm btn-inspect" data-sound-id="${escapeHtml(item.id)}" title="View correlated hashtags">
+              #️⃣ Tags
             </button>
           ` : `
-            <button class="btn btn-outline-sm btn-copy-tag" data-tag-title="${escapeHtml(item.title || item.id)}">
-              Copy Tag
+            <button class="btn btn-outline-sm btn-copy-tag" data-tag-title="${escapeHtml(item.title || item.id)}" title="Copy hashtag">
+              📋 Copy
             </button>
           `}
         </td>
@@ -316,11 +383,17 @@ function renderTable() {
     `;
   }).join("");
 
-  // Attach inspection handlers
+  // Attach Detail inspection handlers (REQ-FR-12 & REQ-FR-15)
+  document.querySelectorAll(".btn-deep-dive").forEach(btn => {
+    btn.addEventListener("click", () => {
+      openTrendDetail(btn.dataset.id);
+    });
+  });
+
+  // Attach hashtag correlation handlers
   document.querySelectorAll(".btn-inspect").forEach(btn => {
     btn.addEventListener("click", () => {
-      const soundId = btn.dataset.soundId;
-      inspectCorrelations(soundId);
+      inspectCorrelations(btn.dataset.soundId);
     });
   });
 
@@ -332,6 +405,82 @@ function renderTable() {
       showToast(`Copied ${tag} to clipboard!`);
     });
   });
+}
+
+/**
+ * Opens Trend Deep-Dive Inspector Modal with full multi-window metrics (REQ-FR-12).
+ * 
+ * @param {string} trendId
+ */
+async function openTrendDetail(trendId) {
+  const modal = document.getElementById("trend-detail-modal");
+  if (!modal) return;
+
+  try {
+    const res = await fetch(`/api/trends/${encodeURIComponent(trendId)}/detail`);
+    if (!res.ok) throw new Error("Could not retrieve trend detail");
+    const d = await res.json();
+
+    document.getElementById("modal-title").textContent = d.title || d.id;
+    document.getElementById("modal-id").textContent = d.id;
+    document.getElementById("modal-type-badge").textContent = `${d.type === "sound" ? "🎵" : "#️⃣"} ${d.type}`;
+
+    const tiktokLink = document.getElementById("modal-tiktok-link");
+    if (tiktokLink) {
+      tiktokLink.href = d.tiktokUrl || "#";
+    }
+
+    document.getElementById("modal-vvs").textContent = Number(d.vvs || 0).toFixed(1);
+    document.getElementById("modal-vel1h").textContent = `+${Number(d.hourlyVelocity || 0).toLocaleString()} v/hr`;
+    document.getElementById("modal-delta6h").textContent = `+${Number(d.delta6h || 0).toLocaleString()} v`;
+    document.getElementById("modal-delta24h").textContent = `+${Number(d.delta24h || 0).toLocaleString()} v`;
+    document.getElementById("modal-accel").textContent = `${d.acceleration > 0 ? "+" : ""}${Number(d.acceleration || 0).toFixed(1)}`;
+
+    const pred = d.saturationPrediction || { opportunityLevel: "PLATEAU", hoursToPeak: 0 };
+    document.getElementById("modal-horizon").textContent = pred.opportunityLevel === "SURGING"
+      ? `⚡ Surging (~${pred.hoursToPeak}h remaining)`
+      : pred.opportunityLevel === "PEAK" ? "🔥 Peak Saturation" : "⏸ Plateaued";
+
+    // Associated hashtags
+    const tagsList = document.getElementById("modal-tags-list");
+    if (tagsList) {
+      if (d.correlatedHashtags && d.correlatedHashtags.length > 0) {
+        tagsList.innerHTML = d.correlatedHashtags.map(t => `
+          <a href="https://www.tiktok.com/tag/${encodeURIComponent(t.replace("#", ""))}" target="_blank" rel="noopener noreferrer" class="tag-item">
+            ${escapeHtml(t)} ↗
+          </a>
+        `).join(" ");
+      } else {
+        tagsList.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">No correlated hashtags detected for this audio.</span>`;
+      }
+    }
+
+    // Snapshots timeseries table
+    const snapBody = document.getElementById("modal-snapshots-body");
+    if (snapBody) {
+      const sn = d.snapshots || [];
+      if (sn.length === 0) {
+        snapBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">No chronological snapshots recorded yet.</td></tr>`;
+      } else {
+        snapBody.innerHTML = sn.slice(-24).map((s, idx, arr) => {
+          const prev = idx > 0 ? arr[idx - 1] : s;
+          const diff = Math.max(0, s.totalVideos - prev.totalVideos);
+          return `
+            <tr>
+              <td style="font-family: monospace;">${escapeHtml(new Date(s.timestamp).toLocaleTimeString())}</td>
+              <td>${Number(s.totalViews).toLocaleString()}</td>
+              <td>${Number(s.totalVideos).toLocaleString()}</td>
+              <td style="font-weight: 600; color: ${diff > 0 ? "#059669" : "var(--text-muted)"};">+${diff.toLocaleString()} v</td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+
+    modal.classList.remove("hidden");
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  }
 }
 
 /**
@@ -392,7 +541,9 @@ async function inspectCorrelations(soundId) {
         </div>
         <div class="tag-list">
           ${data.correlatedHashtags.map(tag => `
-            <span class="tag-item" title="Click to copy tag">${escapeHtml(tag)}</span>
+            <a href="https://www.tiktok.com/tag/${encodeURIComponent(tag.replace('#', ''))}" target="_blank" rel="noopener noreferrer" class="tag-item" title="Click to view on TikTok">
+              ${escapeHtml(tag)} ↗
+            </a>
           `).join("")}
         </div>
         <button id="btn-copy-all-tags" class="btn btn-outline-sm" style="margin-top: 10px; align-self: flex-start;">
@@ -400,14 +551,6 @@ async function inspectCorrelations(soundId) {
         </button>
       </div>
     `;
-
-    // Click to copy individual tag
-    panel.querySelectorAll(".tag-item").forEach(item => {
-      item.addEventListener("click", () => {
-        navigator.clipboard?.writeText(item.textContent);
-        showToast(`Copied ${item.textContent}!`);
-      });
-    });
 
     // Copy all tags
     document.getElementById("btn-copy-all-tags")?.addEventListener("click", () => {
@@ -418,6 +561,41 @@ async function inspectCorrelations(soundId) {
 
   } catch (err) {
     panel.innerHTML = `<div class="empty-placeholder" style="color: var(--accent-magenta);">${err.message}</div>`;
+  }
+}
+
+/**
+ * Handles high-scale ingestion (1,000 or 2,500 items, REQ-FR-13).
+ * 
+ * @param {number} scale
+ */
+async function handleIngestScale(scale = 1000) {
+  const btn = document.getElementById(scale === 2500 ? "btn-ingest-2500" : "btn-ingest-1000");
+  const origText = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Ingesting ${scale.toLocaleString()} Items into SQLite...`;
+  }
+
+  try {
+    const res = await fetch(`/api/ingest/fetch?provider=mock&scale=${scale}`, {
+      method: "POST"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      currentPage = 1;
+      await loadDashboard();
+      showToast(`Ingested ${data.ingestedCount.toLocaleString()} trends into SQLite! (REQ-FR-13)`);
+    } else {
+      showToast(`Ingestion error: ${data.message || data.error}`);
+    }
+  } catch (err) {
+    showToast(`Network error: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
   }
 }
 
@@ -437,6 +615,7 @@ async function handleFetchLive() {
     });
     const data = await res.json();
     if (res.ok) {
+      currentPage = 1;
       await loadDashboard();
       showToast(`Live TikTok feed ingested! (${data.ingestedCount} trends from ${data.provider})`);
     } else {
@@ -461,6 +640,7 @@ async function handleSeed() {
   try {
     const res = await fetch("/api/simulation/seed", { method: "POST" });
     if (res.ok) {
+      currentPage = 1;
       await loadDashboard();
       showToast("Canonical Golden Set loaded (5 sounds, 5 hashtags).");
     }
@@ -501,6 +681,7 @@ async function handleInjectViral() {
         title: "Neon Echo Velocity"
       })
     });
+    currentPage = 1;
     await loadDashboard();
     showToast("Explosive viral sound injected! Status: VIRAL (VVS ≥ 80).");
   } catch (err) {
@@ -523,6 +704,7 @@ async function handleInjectNoise() {
         title: "#microanomaly"
       })
     });
+    currentPage = 1;
     await loadDashboard();
     showToast("Sub-threshold noise injected! Status: NOISE (Suppressed).");
   } catch (err) {

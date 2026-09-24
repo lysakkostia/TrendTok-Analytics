@@ -141,10 +141,14 @@
 
         <div class="filter-toolbar">
           <div class="filter-chips">
-            <button class="filter-chip active" data-filter="all">All Trends (<span id="count-all">0</span>)</button>
-            <button class="filter-chip" data-filter="emerging">🚀 Emerging (<span id="count-emerging">0</span>)</button>
-            <button class="filter-chip" data-filter="sound">🎵 Audios (<span id="count-sound">0</span>)</button>
-            <button class="filter-chip" data-filter="hashtag">#️⃣ Hashtags (<span id="count-hashtag">0</span>)</button>
+            <button class="filter-chip active" data-filter="all">All Trends</button>
+            <button class="filter-chip" data-filter="surge1h">⚡ 1h Surge</button>
+            <button class="filter-chip" data-filter="breakout6h">🚀 6h Breakout</button>
+            <button class="filter-chip" data-filter="viral24h">🔥 24h Viral</button>
+            <button class="filter-chip" data-filter="noise">🆕 Just Uploaded</button>
+            <button class="filter-chip" data-filter="saturated">⏸ Saturated</button>
+            <button class="filter-chip" data-filter="sound">🎵 Audios</button>
+            <button class="filter-chip" data-filter="hashtag">#️⃣ Hashtags</button>
           </div>
           <div class="search-wrapper">
             <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
@@ -179,6 +183,28 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination & Page Size Toolbar (REQ-FR-15) -->
+        <div class="pagination-bar">
+          <div class="pagination-info">
+            Showing <strong id="page-start">0</strong>–<strong id="page-end">0</strong> of <strong id="total-trends-count">0</strong> trends
+          </div>
+
+          <div class="pagination-controls">
+            <div class="page-size-selector">
+              <span>Rows per page:</span>
+              <button class="page-size-btn" data-size="25">25</button>
+              <button class="page-size-btn active" data-size="50">50</button>
+              <button class="page-size-btn" data-size="100">100</button>
+            </div>
+
+            <div class="pagination-nav">
+              <button id="btn-prev-page" class="nav-page-btn" disabled>◀ Prev</button>
+              <span class="page-indicator">Page <span id="current-page">1</span> / <span id="total-pages">1</span></span>
+              <button id="btn-next-page" class="nav-page-btn">Next ▶</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -264,11 +290,19 @@
 
     <div class="drawer-body">
       <div class="sandbox-group">
-        <label class="sandbox-group-label">LIVE DATA INGESTION (REQ-FR-10)</label>
-        <p class="sandbox-help">Fetches real trending TikTok audios and hashtags via Creative Center / Live Feed adapter.</p>
-        <button id="btn-fetch-live" class="btn btn-hero full-width">
-          <span>🌐</span> Fetch Live TikTok Feed
-        </button>
+        <label class="sandbox-group-label">HIGH-SCALE DATASET INGESTION (REQ-FR-13)</label>
+        <p class="sandbox-help">Ingest 1,000 to 2,500+ items across the full lifecycle distribution (Just Uploaded, Emerging, Viral, Saturated) into SQLite.</p>
+        <div class="sandbox-actions-col">
+          <button id="btn-ingest-1000" class="btn btn-hero full-width">
+            <span>⚡</span> Ingest 1,000 High-Scale Corpus
+          </button>
+          <button id="btn-ingest-2500" class="btn btn-outline-dark full-width">
+            <span>🚀</span> Ingest 2,500 Full Dataset
+          </button>
+          <button id="btn-fetch-live" class="btn btn-secondary full-width">
+            <span>🌐</span> Fetch Live TikTok Feed
+          </button>
+        </div>
       </div>
 
       <div class="sandbox-group">
@@ -304,12 +338,12 @@
         <label class="sandbox-group-label">RUNTIME TELEMETRY</label>
         <div class="telemetry-table">
           <div class="telemetry-row">
-            <span>API Specification</span>
-            <span class="font-mono">SRS-TRENDTOK-2026-V2</span>
+            <span>Database Engine</span>
+            <span class="font-mono text-indigo">node:sqlite (Embedded)</span>
           </div>
           <div class="telemetry-row">
-            <span>Standard Compliance</span>
-            <span class="font-mono">IEEE 830 / ISO 29148</span>
+            <span>API Specification</span>
+            <span class="font-mono">SRS-TRENDTOK-2026-V2</span>
           </div>
           <div class="telemetry-row">
             <span>Service Uptime</span>
@@ -327,6 +361,81 @@
     </div>
   </aside>
 
+  <!-- Trend Deep-Dive Telemetry Inspector Modal (REQ-FR-12, REQ-FR-14, REQ-FR-15) -->
+  <div id="trend-detail-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="modal-type-badge" class="badge-mini">🎵 sound</span>
+            <h3 id="modal-title" class="modal-title">Track Name</h3>
+          </div>
+          <div style="margin-top: 6px; display: flex; align-items: center; gap: 12px;">
+            <span id="modal-id" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted);">sound_id</span>
+            <a id="modal-tiktok-link" href="#" target="_blank" rel="noopener noreferrer" class="tiktok-link" style="font-size: 13px;">
+              <span>Open on TikTok</span> <span class="external-icon">↗</span>
+            </a>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="modal-close-btn" aria-label="Close Inspector">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- 6-Metric Summary Grid -->
+        <div class="detail-metric-grid">
+          <div class="detail-metric-card">
+            <div class="detail-metric-label">Virality Score (VVS)</div>
+            <div id="modal-vvs" class="detail-metric-val text-indigo">0.0</div>
+          </div>
+          <div class="detail-metric-card">
+            <div class="detail-metric-label">1h Adoption Velocity</div>
+            <div id="modal-vel1h" class="detail-metric-val">+0 v/hr</div>
+          </div>
+          <div class="detail-metric-card">
+            <div class="detail-metric-label">6h Multi-Window Delta</div>
+            <div id="modal-delta6h" class="detail-metric-val">+0 v</div>
+          </div>
+          <div class="detail-metric-card">
+            <div class="detail-metric-label">24h Cumulative Growth</div>
+            <div id="modal-delta24h" class="detail-metric-val">+0 v</div>
+          </div>
+          <div class="detail-metric-card">
+            <div class="detail-metric-label">Acceleration (dV/dt)</div>
+            <div id="modal-accel" class="detail-metric-val">+0.0</div>
+          </div>
+          <div class="detail-metric-card">
+            <div class="detail-metric-label">Opportunity Horizon</div>
+            <div id="modal-horizon" class="detail-metric-val" style="font-size: 13px;">Surging</div>
+          </div>
+        </div>
+
+        <!-- Co-occurring Viral Hashtags -->
+        <div id="modal-tags-section">
+          <label style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Correlated Viral Hashtags:</label>
+          <div id="modal-tags-list" class="tag-list" style="margin-top: 6px;"></div>
+        </div>
+
+        <!-- Snapshot History Table -->
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; display: block;">Chronological Snapshot Telemetry:</label>
+          <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <table class="detail-snapshots-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Total Views</th>
+                  <th>Total Videos</th>
+                  <th>Incremental Growth</th>
+                </tr>
+              </thead>
+              <tbody id="modal-snapshots-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Backdrop overlay for drawer -->
   <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
 
@@ -341,7 +450,7 @@
         <span class="footer-author">Developed by Lysak Kostiantyn (KN-32), Department of System Design, KPI.</span>
       </div>
       <div class="footer-right">
-        <span class="badge-mini">Node.js v24 (ESM)</span>
+        <span class="badge-mini">Node.js v24 (node:sqlite)</span>
         <span class="badge-mini">Specification-Driven Development</span>
       </div>
     </div>

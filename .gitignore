@@ -29,3 +29,9 @@ desktop.ini
 *.ntvs*
 *.njsproj
 *.sln
+
+# Embedded SQLite Database files
+data/*.db
+data/*.db-wal
+data/*.db-shm
+!data/.gitkeep
