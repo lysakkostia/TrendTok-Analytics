@@ -77,3 +77,53 @@ All open questions (`REQ-L2-01`, `REQ-L2-02`) are fully resolved without ambigui
   * `TrendTok Analytics/spec/srs.md` (SRS standard IEEE 830 / ISO 29148);
   * `TrendTok Analytics/spec/traceability_matrix.md` (Bidirectional Requirements Traceability Matrix);
   * Implementation in `src/trendScorer.js` and test validation in `tests/trendScorer.test.js`.
+
+---
+
+# SKED Dialogue Protocol & Session Log (Session #3)
+
+**Session Identifier:** `SKED-SESSION-03`  
+**Target Repository:** `TrendTok Analytics`  
+**Date:** 2026-09-24  
+**Participants:**
+* **Human-Initiator ($H$):** Lysak Kostiantyn (IV course, Group KN-32)
+* **AI Spec Analyst ($M$):** Google Antigravity (Gemini 3.8 Flash High)
+**Methodology:** Socratic Knowledge Elicitation & Documentation (SKED)  
+**Status:** Converged ($\delta < \epsilon$) & Approved  
+
+---
+
+## 1. Phase 1: Initialization & Maieutic Critique
+
+* **Critique by Human ($H$):**
+  * Current dataset of 5-6 sample items is statistically unrepresentative for TikTok virality analysis.
+  * Real-world TikTok virality requires thousands of tracks: from brand-new, just-uploaded audio (testing early detection and noise filtering) to global viral explosions.
+  * Need persistent database storage with multi-tier time granularity (1h, 6h, 24h changes) and rolling 7-day retention.
+  * Music and hashtags must have direct clickable deep-links to official TikTok pages.
+  * Main dashboard must provide category metric filters, switchable pagination (25 / 50 / 100 tracks per page), and an individual deep-dive inspection page.
+
+---
+
+## 2. Phase 2: Dialectic Architectural Choices
+
+| Architectural Problem | Considered Options | Consensus Decision ($K^*$) |
+|---|---|---|
+| **Persistence Engine** | A: Native `node:sqlite`<br>B: JSON Lines flat files<br>C: PostgreSQL / Redis | **Option A (Native `node:sqlite`)**: Built directly into Node.js v24 runtime with zero external dependencies, persistent disk storage (`data/trendtok.db`), high-speed indexed SQL queries, and zero daemon setup. |
+| **Data Scope & Scale** | A: Only top-100 official chart<br>B: 1,000 – 2,500+ broad corpus across all lifecycle stages | **Option B (1,000 – 2,500+ Corpus)**: Combines real TikTok Creative Center anchor items with a scaled Power-Law distribution generator spanning Just Uploaded (noise floor) to Viral hits. |
+| **Multi-Tier History** | A: Flat single-point delta<br>B: Multi-window schema (1h, 6h, 24h, 7d retention) | **Option B**: SQLite schema supporting rolling 1h, 6h, and 24h delta metrics with 7-day retention window and automated periodic pruning. |
+| **Deep-Linking** | A: Raw string IDs<br>B: Direct `tiktok.com` links | **Option B**: Automatic generation of `https://www.tiktok.com/music/-${soundId}` (or search URL) and `https://www.tiktok.com/tag/${cleanTag}` with `target="_blank"`. |
+| **UI Scalability** | A: Single infinite DOM table<br>B: Switchable pagination (25/50/100) + Deep-Dive Inspector | **Option B**: Scalable UI with pagination controls (25, 50, 100), category metric tabs (Rapid 1h, 6h Breakout, 24h Sustained, Just Uploaded), and full telemetry inspector drawer. |
+
+---
+
+## 3. Phase 3: Consensus Knowledge Space $K^*$
+
+The dialogue achieved complete epistemic convergence:
+$$\delta = d(K^{(3)}, K^{(2)}) < \epsilon$$
+
+### Codified Requirements:
+* **`REQ-FR-12`**: Native `node:sqlite` Multi-Tier Persistence with 7-Day Rolling Retention.
+* **`REQ-FR-13`**: High-Scale Corpus Ingestion (1,000 – 2,500+ items across all lifecycle stages).
+* **`REQ-FR-14`**: TikTok Deep-Linking Architecture for Sounds and Hashtags.
+* **`REQ-FR-15`**: Scalable Dashboard with 25/50/100 Pagination, Category Metric Tabs, and Deep-Dive Inspection View.
+

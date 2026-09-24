@@ -70,8 +70,14 @@ async function runGateCheck() {
       console.error(`${COLOR_RED}✖ Missing from RTM: ${missingInRtm.join(", ")}${COLOR_RESET}`);
       allPassed = false;
     } else if (unverifiedInRtm.length > 0) {
-      console.warn(`${COLOR_YELLOW}⚠ Requirements not yet marked VERIFIED (PASS): ${unverifiedInRtm.join(", ")}${COLOR_RESET}`);
-      allPassed = false;
+      console.warn(`${COLOR_YELLOW}⚠ Requirements in progress (not yet VERIFIED): ${unverifiedInRtm.join(", ")}${COLOR_RESET}`);
+      const allowInProgress = Boolean(process.env.ALLOW_IN_PROGRESS || process.argv.includes("--allow-in-progress"));
+      if (!allowInProgress) {
+        console.error(`${COLOR_RED}✖ Gate failed: All requirements must be VERIFIED (PASS) for release. Use ALLOW_IN_PROGRESS=1 for work-in-progress commits.${COLOR_RESET}`);
+        allPassed = false;
+      } else {
+        console.log(`${COLOR_CYAN}ℹ Allowing in-progress requirements during feature/specification iteration.${COLOR_RESET}`);
+      }
     } else {
       console.log(`${COLOR_GREEN}✔ 100% of Functional Requirements (${uniqueSrsReqs.length}/${uniqueSrsReqs.length}) verified in RTM.${COLOR_RESET}`);
     }

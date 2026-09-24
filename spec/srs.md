@@ -240,6 +240,44 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   2. Opportunity levels categorized as `SURGING` (high opportunity), `PEAK` (saturated soon), or `PLATEAU` (decaying).
   3. Exposed on trends query endpoints (`/api/trends`) and rendered on the client dashboard.
 
+#### REQ-FR-12: Native SQLite Persistence & Multi-Window Historical Granularity
+* **Description**: The system shall persist trends, historical snapshots, and correlation graph data in an embedded native SQLite database (`node:sqlite`) with rolling 7-day retention and multi-window delta analytics.
+* **Database File**: `data/trendtok.db` (zero external dependencies).
+* **Acceptance Criteria**:
+  1. Utilizes Node.js v24 native `import { DatabaseSync } from 'node:sqlite'`.
+  2. Enforces schema with tables `trends`, `snapshots`, and `correlations` with compound index on `(trend_id, timestamp)`.
+  3. Computes multi-tier velocity deltas: $\Delta 1\text{h}$, $\Delta 6\text{h}$, and $\Delta 24\text{h}$ directly from time-window queries.
+  4. Provides endpoint `GET /api/trends/:id/detail` returning comprehensive historical telemetry, metric comparisons, and deep-link metadata.
+  5. Implements automated rolling pruning of snapshots older than 7 days (`T - 7 days`).
+
+#### REQ-FR-13: High-Scale Corpus Ingestion (1,000 – 2,500+ Items)
+* **Description**: The ingestion pipeline shall support scaling the tracked trend corpus to 1,000–2,500+ items across the full lifecycle distribution spectrum, combining live TikTok Creative Center anchor data with a realistic power-law generator.
+* **Lifecycle Distribution Spectrum**:
+  * `JUST_UPLOADED` (Micro-noise floor: 10–500 views, 0–5 creations; tests early detection guardrail).
+  * `EMERGING` (Nascent surge: 15k–80k views, rapid positive acceleration).
+  * `VIRAL` (Peak momentum: 100k–5M views, high velocity).
+  * `SATURATED` (Mature adoption: decaying or plateaued acceleration).
+* **Acceptance Criteria**:
+  1. Ingestion endpoint supports `scale` parameter: `POST /api/ingest/fetch?scale=1000`.
+  2. Ingests at least 1,000 unique records in under 2.0 seconds into SQLite.
+  3. Guarantees deterministic data integrity and non-negative metric deltas.
+
+#### REQ-FR-14: Direct TikTok Deep-Linking Architecture
+* **Description**: The system shall generate and expose canonical, direct TikTok URLs for all tracked sounds and hashtags.
+* **Deep-Link Specifications**:
+  * Audio sound: `https://www.tiktok.com/music/-${soundId}` with fallback search `https://www.tiktok.com/search?q=${encodeURIComponent(title)}`.
+  * Hashtag: `https://www.tiktok.com/tag/${cleanTag}`.
+* **Acceptance Criteria**:
+  1. API payload schemas for `/api/trends` and `/api/trends/:id/detail` must include the `tiktokUrl` attribute.
+  2. UI dashboard renders track titles, identifiers, and hashtag correlation tags as clickable links opening in a new tab (`target="_blank"` with `rel="noopener noreferrer"`).
+
+#### REQ-FR-15: Scalable Creator UI with Pagination & Category Metric Views
+* **Description**: The web dashboard shall support high-scale browsing of thousands of trends without DOM lag through switchable pagination and specialized category metric tabs.
+* **Acceptance Criteria**:
+  1. Page size switcher allowing the user to select `25`, `50`, or `100` tracks per page with next/previous controls.
+  2. Category metric tabs: `All Trends`, `⚡ 1h Rapid Surge`, `🚀 6h Breakout`, `🔥 24h Sustained Viral`, `🆕 Just Uploaded (Noise Floor)`, `⏸ Saturated`.
+  3. Interactive "Trend Deep Inspector" modal / view displaying full 1h/6h/24h comparisons, complete historical timeseries, and associated viral hashtag cluster.
+
 ---
 
 ### 3.2 Non-Functional Requirements (NFR)

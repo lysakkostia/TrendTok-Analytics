@@ -34,14 +34,18 @@ In accordance with **Specification-Driven Development (SDD)**, every production 
 | **Interactive simulation & time control** | `REQ-FR-09` (Simulation & Time-Step Controller) | Contract: `POST /api/simulation/step`, `POST /api/simulation/inject` | `test/api: simulation-step-controller` | `src/index.js` (`handleSimulationStep`, `handleSimulationInject`) | **VERIFIED (PASS)** |
 | **Live external TikTok feed ingestion** | `REQ-FR-10` (Pluggable Feed Ingestion Engine) | Contract: `POST /api/ingest/fetch` | `test/api: live-feed-ingestion` | `src/ingestionClient.js`, `src/index.js` | **VERIFIED (PASS)** |
 | **Predictive trajectory & saturation calculus** | `REQ-FR-11` (Predictive Trajectory & Saturation) | Mathematical assertion on saturation hours | `test/trendScorer: saturation-prediction` | `src/trendScorer.js` (`predictSaturationWindow`) | **VERIFIED (PASS)** |
+| **Native SQLite multi-tier persistence** | `REQ-FR-12` (SQLite Store & 7d Retention) | Contract: `GET /api/trends/:id/detail` & SQLite queries | `test/storage: sqlite-multi-tier-retention` | `src/db.js`, `src/index.js` | **IN PROGRESS** |
+| **High-scale corpus ingestion (1,000–2,500+)** | `REQ-FR-13` (High-Scale Trend Corpus) | Ingestion benchmark of 1,000+ items across stages | `test/ingestion: high-scale-corpus-generation` | `src/ingestionClient.js` | **IN PROGRESS** |
+| **Direct TikTok deep-linking architecture** | `REQ-FR-14` (Direct TikTok Links) | URL formatting contract validation | `test/api: tiktok-deep-links` | `src/public/dashboard.js`, `src/index.js` | **IN PROGRESS** |
+| **Scalable UI with pagination & categories** | `REQ-FR-15` (Pagination & Deep Inspector) | DOM rendering and page size switcher assertions | `test/api: paginated-trends-query` | `src/public/dashboard.js`, `src/public/index.html` | **IN PROGRESS** |
 
 ---
 
 ## 3. Coverage Analysis Summary
 
-* **Total Functional Requirements (FR):** 11
+* **Total Functional Requirements (FR):** 15
 * **Total Non-Functional Requirements (NFR):** 4
-* **Requirements with Automated Test Coverage:** 15 / 15 (100% targeted)
+* **Requirements with Automated Test Coverage:** 19 / 19 (100% targeted)
 * **Orphaned Requirements:** 0
 * **Unjustified Code Modules:** 0
 
