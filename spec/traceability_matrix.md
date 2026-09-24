@@ -1,4 +1,4 @@
-﻿# Requirements Traceability Matrix (RTM)
+# Requirements Traceability Matrix (RTM)
 ## TrendTok Analytics — SDD Phase 2 Baseline
 
 **Document Identifier:** `RTM-TRENDTOK-2026-V1`  
@@ -30,13 +30,16 @@ In accordance with **Specification-Driven Development (SDD)**, every production 
 | **High computational speed** | `REQ-NFR-01` (Latency < 0.5ms per calculation) | Benchmark timing assertion | `test/trendScorer: performance-benchmark` | `src/trendScorer.js` (Pure algorithm) | **VERIFIED (PASS)** |
 | **Resilience & Input Validation** | `REQ-NFR-03` (Fail-fast on corrupt data) | Negative test assertions | `test/trendScorer: edge-cases-validation` | `src/trendScorer.js` (Input guards) | **VERIFIED (PASS)** |
 | **Memory bounding & rolling buffer** | `REQ-NFR-02` (24h TTL Pruning) | Memory buffer eviction check | `test/storage: ttl-pruning-sliding-window` | `src/index.js` (In-Memory Ring Store) | **VERIFIED (PASS)** |
+| **Visual intelligence & real-time dashboard** | `REQ-FR-08` (Interactive Web Dashboard) | Contract: `GET /`, `GET /dashboard.css`, `GET /dashboard.js` | `test/api: ui-dashboard-serving` | `src/public/index.html`, `src/public/dashboard.css`, `src/public/dashboard.js`, `src/index.js` | **IN PROGRESS** |
+| **Interactive simulation & time control** | `REQ-FR-09` (Simulation & Time-Step Controller) | Contract: `POST /api/simulation/step`, `POST /api/simulation/inject` | `test/api: simulation-step-controller` | `src/index.js` (`handleSimulationStep`, `handleSimulationInject`) | **IN PROGRESS** |
 
 ---
 
 ## 3. Coverage Analysis Summary
 
-* **Total Functional Requirements (FR):** 7
+* **Total Functional Requirements (FR):** 9
 * **Total Non-Functional Requirements (NFR):** 4
-* **Requirements with Automated Test Coverage:** 11 / 11 (100%)
+* **Requirements with Automated Test Coverage:** 13 / 13 (100% targeted)
 * **Orphaned Requirements:** 0
 * **Unjustified Code Modules:** 0
+

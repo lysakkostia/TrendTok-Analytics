@@ -201,6 +201,24 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   1. Clears current volatile state and populates the in-memory store with the canonical Golden Set (5 sounds, 5 hashtags across 24 hourly snapshots).
   2. Returns HTTP 200 OK with confirmation summary.
 
+#### REQ-FR-08: Interactive Real-Time Web Dashboard (UI)
+* **Description**: The system shall serve a lightweight, responsive client web dashboard providing visual intelligence for tracked TikTok trends.
+* **Endpoints**: `GET /` (delivers HTML dashboard when requested by a browser or with `Accept: text/html`), `GET /dashboard.css`, `GET /dashboard.js`.
+* **Acceptance Criteria**:
+  1. Delivered without heavyweight client framework dependencies (pure standard HTML5, CSS3, ES Modules).
+  2. Renders a real-time trends leaderboard displaying rank, title, entity type (`sound` / `hashtag`), lifecycle badge (`NOISE`, `EMERGING`, `VIRAL`, `SATURATED`, `DECAYING`), normalized VVS gauge, hourly velocity, and SVG sparkline trajectories.
+  3. Supports real-time filtering by lifecycle status (All, Emerging, Viral) and content type.
+  4. Provides an interactive correlation inspector displaying co-occurring hashtags for any selected audio sound.
+  5. Page load and initial render completes in under 100 ms locally.
+
+#### REQ-FR-09: Simulation & Time-Step Controller
+* **Description**: The web service shall provide interactive controls to seed test data, advance time by discrete intervals, and inject dynamic virality spikes.
+* **Endpoints**: `POST /api/simulation/seed`, `POST /api/simulation/step`, `POST /api/simulation/inject`.
+* **Acceptance Criteria**:
+  1. `POST /api/simulation/step` advances time by +1 hour for all currently tracked items with realistic synthetic delta distributions based on their current lifecycle acceleration.
+  2. `POST /api/simulation/inject` allows injecting custom anomaly scenarios (e.g. explosive viral sound spike or low-volume micro-sample noise).
+  3. Endpoints return HTTP 200 OK with the updated simulated state count and timestamp.
+
 ---
 
 ### 3.2 Non-Functional Requirements (NFR)
