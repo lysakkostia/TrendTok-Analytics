@@ -78,7 +78,7 @@ export function createServer() {
       // ==========================================
       // REQ-FR-08: Web Dashboard Static Routing
       // ==========================================
-      if (method === "GET") {
+      if (method === "GET" || method === "HEAD") {
         // 1. Dashboard HTML at GET / when requested by browser or Accept includes text/html
         if (url.pathname === "/") {
           const acceptHeader = req.headers.accept || "";
@@ -86,7 +86,7 @@ export function createServer() {
             const htmlPath = path.join(PUBLIC_DIR, "index.html");
             const htmlContent = await fs.readFile(htmlPath, "utf-8");
             res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-            return res.end(htmlContent);
+            return res.end(method === "HEAD" ? "" : htmlContent);
           }
 
           // Otherwise return API discovery catalog (backward-compatible)
