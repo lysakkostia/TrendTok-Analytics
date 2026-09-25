@@ -29,13 +29,19 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 
 const PORT = process.env.PORT || 3000;
 
+// Detect Node.js native test runner so automated tests never touch production SQLite files on disk
+const isNodeTestRunner =
+  process.env.NODE_ENV === "test" ||
+  Boolean(process.env.NODE_TEST_CONTEXT) ||
+  process.execArgv.some((arg) => arg.startsWith("--test"));
+
 // Production Primary Database
-const defaultDbPath = process.env.NODE_ENV === "test" ? ":memory:" : (process.env.DB_PATH || path.join(__dirname, "..", "data", "trendtok.db"));
+const defaultDbPath = isNodeTestRunner ? ":memory:" : (process.env.DB_PATH || path.join(__dirname, "..", "data", "trendtok.db"));
 export const db = initDatabase(defaultDbPath);
 export const repository = new TrendRepository(db);
 
 // Isolated Test & Simulation Database (REQ-FR-07, REQ-FR-09)
-const testDbPath = process.env.NODE_ENV === "test" ? ":memory:" : (process.env.TEST_DB_PATH || path.join(__dirname, "..", "data", "trendtok_test.db"));
+const testDbPath = isNodeTestRunner ? ":memory:" : (process.env.TEST_DB_PATH || path.join(__dirname, "..", "data", "trendtok_test.db"));
 export const testDb = initDatabase(testDbPath);
 export const testRepository = new TrendRepository(testDb);
 
@@ -554,12 +560,15 @@ export function createServer() {
         const activeRepo = isTest ? testRepository : repository;
         const summary = await runCollectionCycle({
           repository: activeRepo,
-          geos: ["US", "UA"]
+          geos: ["US", "UA"],
+          creativeCenterRegions: ["US", "GB"]
         });
         return sendJson(res, 200, {
           status: "collected",
           targetDatabase: isTest ? "test" : "main",
           musicCount: summary.musicCount,
+          creativeCenterCount: summary.creativeCenterCount,
+          googleTrendsCount: summary.googleTrendsCount,
           hashtagCount: summary.hashtagCount,
           providers: summary.providers
         });
@@ -969,14 +978,13 @@ export const server = createServer();
 if (process.argv[1] && (import.meta.filename === process.argv[1] || __filename === path.resolve(process.argv[1]))) {
   try {
     const stats = repository.getStats();
-    if (stats.trendCount < 1000) {
-      console.log("[TrendTok Analytics] Ingesting authentic high-scale trends corpus (5,000 items) into SQLite...");
-      const initial = await fetchExternalTrendingFeed("mock", { scale: 5000 });
-      repository.insertBatch(initial.records);
-      console.log(`[TrendTok Analytics] Ingested ${initial.records.length} authentic trends into SQLite database.`);
+    if (stats.trendCount === 0) {
+      console.log("[TrendTok Analytics] Main database is empty. Running decoupled collectors for real trends...");
+      const initial = await runCollectionCycle({ repository });
+      console.log(`[TrendTok Analytics] Ingested ${initial.records.length} real trends into SQLite database.`);
     }
   } catch (e) {
-    console.error("[TrendTok Analytics] Startup corpus initialization error:", e);
+    console.error("[TrendTok Analytics] Startup collection error:", e);
   }
 
   // Pre-seed test repository with canonical Golden Set if empty so /test is immediately functional

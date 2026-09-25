@@ -273,8 +273,8 @@ export class TrendRepository {
           });
         }
 
-        // Save sound-hashtag correlations if present
-        if (rec.type === "sound" && Array.isArray(rec.hashtags)) {
+        // Save sound-hashtag or hashtag-triad correlations if present
+        if (Array.isArray(rec.hashtags)) {
           for (const tag of rec.hashtags) {
             this.stmtUpsertCorrelation.run(rec.itemId, tag);
           }

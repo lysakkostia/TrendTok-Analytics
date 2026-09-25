@@ -22,10 +22,15 @@ import {
   parseMusicChartJson,
   collectTrendingMusic
 } from "../src/collectors/musicCollector.js";
+import {
+  buildCreativeCenterTriad,
+  parseCreativeCenterHtml,
+  collectCreativeCenterHashtags
+} from "../src/collectors/creativeCenterAgent.js";
 import { runCollectionCycle } from "../src/collectors/collectorWorker.js";
 import { initDatabase, TrendRepository } from "../src/db.js";
 
-test("Collectors Suite: Stop-Words, Google Trends RSS & Music Chart Aggregation (REQ-FR-16)", async (t) => {
+test("Collectors Suite: Stop-Words, Creative Center Chrome Agent, Google Trends RSS & Music Charts (REQ-FR-16)", async (t) => {
   await t.test("stopWords: normalizes phrases and filters evergreen platform constants (#fyp, #viral, #trending)", () => {
     assert.equal(normalizeHashtag("Squid Game Season 2!"), "#squidgameseason2");
     assert.equal(normalizeHashtag("##FYP"), "#fyp");
@@ -49,6 +54,42 @@ test("Collectors Suite: Stop-Words, Google Trends RSS & Music Chart Aggregation 
     ]);
     assert.deepEqual(filtered, ["#squidgame2", "#thanosedit"]);
     assert.ok(EVERGREEN_REMARK_NOTICE.includes("#fyp"));
+  });
+
+  await t.test("creativeCenterAgent: parses TikTok Creative Center SSR JSON and popularityCurve independently from Google Trends", async () => {
+    const triad = buildCreativeCenterTriad("floresamarillas", "Food & Beverage");
+    assert.equal(triad.length, 3);
+    assert.equal(triad[0], "#floresamarillas");
+    for (const tag of triad) {
+      assert.equal(isEvergreenStopTag(tag), false);
+    }
+
+    const mockCreativeCenterHtml = `
+      <script id="__MODERN_ROUTER_DATA__" type="application/json">
+      {"pages":[{"data":[
+        {"hashtagID":"794128","hashtagName":"floresamarillas","industryIDs":["27000000000"],"popularityCurve":[{"timestamp":"1789603200","value":7.2},{"timestamp":"1789689600","value":39.1},{"timestamp":"1789776000","value":100}],"publishCnt":"35646","rankIndex":"1","vv":"152612397"},
+        {"hashtagID":"999999","hashtagName":"fyp","industryIDs":[],"popularityCurve":[{"timestamp":"1789603200","value":50},{"timestamp":"1789689600","value":100}],"publishCnt":"999999","rankIndex":"2","vv":"999999999"}
+      ]}]}
+      </script>
+    `;
+
+    const parsed = parseCreativeCenterHtml(mockCreativeCenterHtml, { region: "US" });
+    // #fyp is automatically stripped by evergreen stop-list; #floresamarillas is kept
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].title, "#floresamarillas");
+    assert.equal(parsed[0].totalVideos, 35646);
+    assert.equal(parsed[0].totalViews, 152612397);
+    assert.equal(parsed[0].snapshots.length, 3);
+    assert.equal(parsed[0].source, "tiktok_creative_center_cdp");
+
+    const liveAgentRes = await collectCreativeCenterHashtags({
+      regions: ["US"],
+      periods: [7],
+      customHtmlFetcher: async () => mockCreativeCenterHtml
+    });
+    assert.equal(liveAgentRes.provider, "tiktok_creative_center_chrome_cdp");
+    assert.ok(liveAgentRes.records.some((r) => r.title === "#floresamarillas"));
+    assert.ok(liveAgentRes.records.some((r) => r.title === "#firstdayoffall"));
   });
 
   await t.test("hashtagCollector: parses traffic strings and extracts Google Trends RSS spikes", () => {
@@ -139,7 +180,7 @@ test("Collectors Suite: Stop-Words, Google Trends RSS & Music Chart Aggregation 
     assert.ok(fallbackMusic.records.length >= 6);
   });
 
-  await t.test("collectorWorker: executes full decoupled collection cycle and persists to SQLite", async () => {
+  await t.test("collectorWorker: executes full decoupled collection cycle across all 3 modules and persists to SQLite", async () => {
     const memDb = initDatabase(":memory:");
     const repo = new TrendRepository(memDb);
 
@@ -150,7 +191,9 @@ test("Collectors Suite: Stop-Words, Google Trends RSS & Music Chart Aggregation 
     });
 
     assert.ok(summary.musicCount >= 6);
-    assert.ok(summary.hashtagCount >= 5);
+    assert.ok(summary.creativeCenterCount >= 5);
+    assert.ok(summary.googleTrendsCount >= 5);
+    assert.equal(summary.hashtagCount, summary.creativeCenterCount + summary.googleTrendsCount);
 
     const stats = repo.getStats();
     assert.equal(stats.trendCount, summary.musicCount + summary.hashtagCount);

@@ -280,12 +280,13 @@ When an AI agent (e.g. Antigravity, Claude, or GPT) is initialized with only thi
   3. Interactive "Trend Deep Inspector" modal displaying full 1h/6h/24h comparisons, complete historical timeseries, and associated viral hashtag cluster.
   4. Interactive column header sorting on all data fields: `Rank`, `Type`, `Trend Name`, `Virality Score (VVS)`, `Hourly Velocity`, `Lifecycle Phase`, `Opportunity Horizon`, and `24h Trajectory`, toggling between ascending and descending order.
 
-#### REQ-FR-16: Decoupled Data Collectors, Google Trends Breakout Feed & Evergreen Stop-List
-* **Description**: Data aggregation for music tracks and breakout hashtags shall be encapsulated in standalone collector modules (`src/collectors/*`) decoupled from the HTTP request lifecycle, enforcing an Evergreen Stop-List to filter out constant platform tags.
+#### REQ-FR-16: Decoupled Data Collectors, Creative Center Chrome Agent, Google Trends Feed & Evergreen Stop-List
+* **Description**: Data aggregation for music tracks, TikTok Creative Center hashtags, and Google Trends breakout spikes shall be encapsulated in standalone collector modules (`src/collectors/*`) decoupled from the HTTP request lifecycle, enforcing an Evergreen Stop-List to filter out constant platform tags.
 * **Acceptance Criteria**:
   1. Evergreen platform tags (`#fyp`, `#foryou`, `#foryoupage`, `#viral`, `#trending`, `#tiktok`, `#xyzbca`) must be excluded by `src/collectors/stopWords.js` before persistence or correlation indexing.
   2. `src/collectors/hashtagCollector.js` parses real-time breakout search spikes from Google Trends RSS/XML feeds (`trends.google.com/trending/rss`) and normalizes surging queries into topical hashtags with associated related sub-tags.
-  3. `src/collectors/musicCollector.js` aggregates trending music tracks from open chart feeds (Apple Music / iTunes RSS & Creative Center) independent of the web server.
+  3. `src/collectors/creativeCenterAgent.js` operates as an independent Headless Chrome CDP Agent module that extracts client-rendered trending hashtags, post counts (`publishCnt`), view counts (`vv`), and 7-day popularity curves (`popularityCurve`) from TikTok Creative Center (`ads.tiktok.com/creative/creativeCenter/trends/hashtag`).
+  4. `src/collectors/musicCollector.js` aggregates trending music tracks from open chart feeds (Deezer / Apple Music RSS) independent of the web server.
 
 #### REQ-FR-17: Dual Time-Series Forecasting & Evolutionary Parameter Tuning
 * **Description**: The analytics engine shall provide separate mathematical forecasting models for Music (`soundForecaster`) and Breakout Hashtags (`hashtagForecaster`), along with an evolutionary (genetic) algorithm (`evolutionaryTuner`) to optimize scoring weights on historical backtest time-series.
