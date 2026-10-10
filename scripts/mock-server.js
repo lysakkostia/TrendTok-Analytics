@@ -92,18 +92,99 @@ export function createMockServer() {
     let pathname = parsedUrl.pathname;
     const method = req.method.toUpperCase();
 
+    // 0. Serve Raw OpenAPI Spec & Swagger UI
+    if (pathname === "/openapi.json" || pathname === "/api/v1/openapi.json") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      return res.end(JSON.stringify(spec, null, 2));
+    }
+
+    if (pathname === "/openapi.yaml" || pathname === "/api/v1/openapi.yaml") {
+      const yamlPath = path.join(__dirname, "..", "spec", "openapi.yaml");
+      const yamlContent = fs.readFileSync(yamlPath, "utf8");
+      res.writeHead(200, { "Content-Type": "text/yaml; charset=utf-8" });
+      return res.end(yamlContent);
+    }
+
+    if (pathname === "/docs" || pathname === "/docs/") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      return res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrendTok Analytics — OpenAPI Mock Explorer</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #fafafa; font-family: sans-serif; }
+    .topbar { background: #0f172a; padding: 12px 24px; color: white; display: flex; align-items: center; justify-content: space-between; }
+    .topbar h1 { margin: 0; font-size: 16px; font-weight: 600; }
+    .badge { background: #22c55e; color: #022c22; font-size: 11px; padding: 3px 8px; border-radius: 9999px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>TrendTok Analytics — OpenAPI 3.0 Mock Explorer (Lab 4)</h1>
+    <span class="badge">MOCK API ACTIVE :4010</span>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = () => {
+      SwaggerUIBundle({
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout",
+        deepLinking: true
+      });
+    };
+  </script>
+</body>
+</html>`);
+    }
+
     // Strip optional /api/v1 or /api prefix for contract matching
     let routePath = pathname;
     if (routePath.startsWith("/api/v1")) {
-      routePath = routePath.replace("/api/v1", "");
+      routePath = routePath.slice("/api/v1".length);
     } else if (routePath.startsWith("/api")) {
-      routePath = routePath.replace("/api", "");
+      routePath = routePath.slice("/api".length);
     }
 
     if (!routePath.startsWith("/")) routePath = "/" + routePath;
 
+    // Root / Discovery Catalog (GET / or GET /api/v1)
+    if (routePath === "/" || pathname === "/" || pathname === "/api" || pathname === "/api/v1") {
+      const host = req.headers.host || "127.0.0.1:4010";
+      return sendJson(res, 200, {
+        service: "TrendTok Analytics Mock API",
+        version: spec.info.version,
+        specification: "spec/openapi.yaml (OpenAPI 3.0.3)",
+        status: "online",
+        mode: "Pure Contract Mock (Zero Database, Zero Calc Modules)",
+        interactiveDocumentation: `http://${host}/docs`,
+        specJson: `http://${host}/openapi.json`,
+        specYaml: `http://${host}/openapi.yaml`,
+        endpoints: {
+          "GET /api/v1/health": `http://${host}/api/v1/health`,
+          "GET /api/v1/trends": `http://${host}/api/v1/trends`,
+          "GET /api/v1/trends/emerging": `http://${host}/api/v1/trends/emerging`,
+          "GET /api/v1/trends/sound_aurora": `http://${host}/api/v1/trends/sound_aurora`,
+          "GET /api/v1/trends/sound_aurora/correlations": `http://${host}/api/v1/trends/sound_aurora/correlations`,
+          "GET /api/v1/trends/sound_aurora/forecast": `http://${host}/api/v1/trends/sound_aurora/forecast`,
+          "POST /api/v1/snapshots": "Ingest discrete metric snapshots (single or batch)",
+          "POST /api/v1/simulation/seed": "Seed deterministic Golden Set",
+          "POST /api/v1/simulation/step": "Advance simulation timeline (+1h)",
+          "POST /api/v1/ingest/fetch": "Trigger external feed ingestion"
+        }
+      });
+    }
+
     // 1. Health Endpoint (GET /health)
-    if (routePath === "/health" || routePath === "") {
+    if (routePath === "/health") {
       if (method !== "GET") {
         return sendJson(res, 405, buildErrorResponse(405, "METHOD_NOT_ALLOWED", "METHOD_NOT_ALLOWED", `Method ${method} not allowed for /health`, pathname));
       }
