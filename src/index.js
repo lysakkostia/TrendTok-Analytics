@@ -90,7 +90,12 @@ function parseJsonBody(req) {
  * @param {Object} data
  */
 function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+    "Access-Control-Allow-Headers": "*"
+  });
   res.end(JSON.stringify(data));
 }
 
@@ -103,6 +108,17 @@ export function createServer() {
     const host = req.headers.host || `localhost:${PORT}`;
     const url = new URL(req.url, `http://${host}`);
     const method = req.method;
+
+    // CORS preflight handler
+    if (method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Max-Age": "86400"
+      });
+      return res.end();
+    }
 
     // Support /api/v1 transparently as OpenAPI standard versioned prefix
     if (url.pathname.startsWith("/api/v1/")) {

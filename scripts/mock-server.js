@@ -76,6 +76,9 @@ function parseBody(req) {
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+    "Access-Control-Allow-Headers": "*",
     "X-Powered-By": "TrendTok-OpenAPI-Mock-Engine",
     "X-API-Contract-Version": spec.info.version
   });
@@ -91,6 +94,17 @@ export function createMockServer() {
     const parsedUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     let pathname = parsedUrl.pathname;
     const method = req.method.toUpperCase();
+
+    // CORS Preflight Handler
+    if (method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Max-Age": "86400"
+      });
+      return res.end();
+    }
 
     // 0. Serve Raw OpenAPI Spec & Swagger UI
     if (pathname === "/openapi.json" || pathname === "/api/v1/openapi.json") {
