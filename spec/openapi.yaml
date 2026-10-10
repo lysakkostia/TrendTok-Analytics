@@ -12,10 +12,10 @@ info:
     email: lisakkosta37@gmail.com
     url: https://github.com/lysakkostia/TrendTok-Analytics
 servers:
-  - url: http://localhost:3000/api/v1
-    description: Primary Local Application Server (Node.js ES Modules)
   - url: http://localhost:4010/api/v1
-    description: Isolated Mock API Server (OpenAPI Contract Runner)
+    description: Isolated Mock API Server (OpenAPI Contract Runner - Lab 4)
+  - url: http://localhost:3000/api/v1
+    description: Primary Local Application Server (Node.js ES Modules - Lab 5)
 tags:
   - name: System
     description: Health, diagnostic telemetry, and discovery operations
