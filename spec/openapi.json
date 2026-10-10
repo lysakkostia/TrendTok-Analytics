@@ -1,0 +1,1451 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TrendTok Analytics REST API",
+    "description": "Normative REST API specification for **TrendTok Analytics** — high-throughput,\nreal-time TikTok viral content intelligence service.\nDesigned according to Specification-Driven Development (SDD) principles.\nSingle Source of Truth (SSOT) derived from SRS-TRENDTOK-2026-V2.\n",
+    "version": "2.3.0",
+    "contact": {
+      "name": "Kostiantyn Lysak (Group KN-32)",
+      "email": "lisakkosta37@gmail.com",
+      "url": "https://github.com/lysakkostia/TrendTok-Analytics"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Primary Local Application Server (Node.js ES Modules)"
+    },
+    {
+      "url": "http://localhost:4010/api/v1",
+      "description": "Isolated Mock API Server (OpenAPI Contract Runner)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Health, diagnostic telemetry, and discovery operations"
+    },
+    {
+      "name": "Ingestion",
+      "description": "Metric snapshots collection and external feed providers"
+    },
+    {
+      "name": "Trends",
+      "description": "Trends leaderboard, entity lifecycle, deep links, and analytics"
+    },
+    {
+      "name": "Analytics & Forecasting",
+      "description": "Trajectory calculus, saturation windows, and hashtag triad recommendations"
+    },
+    {
+      "name": "Simulation",
+      "description": "Deterministic Golden Set simulation and time-step controls"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Service Health & Diagnostics",
+        "description": "Returns health status, active specification identifier, and runtime telemetry. Maps to REQ-NFR-01.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is healthy and operational.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "service": "TrendTok Analytics",
+                  "version": "2.3.0",
+                  "specification": "SRS-TRENDTOK-2026-V2",
+                  "uptimeSeconds": 342.15,
+                  "timestamp": "2026-10-10T14:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal service degradation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/snapshots": {
+      "post": {
+        "tags": [
+          "Ingestion"
+        ],
+        "summary": "Ingest Metric Snapshots",
+        "description": "Ingests a batch or single discrete metric observation snapshot for sounds or hashtags.\nEnforces fail-fast schema validation. Rejects negative numbers or malformed timestamps.\nMaps to REQ-FR-01 and REQ-NFR-03.\n",
+        "operationId": "ingestSnapshots",
+        "requestBody": {
+          "description": "Single snapshot object or batch container.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotBatchRequest"
+              },
+              "examples": {
+                "singleSnapshot": {
+                  "summary": "Single Sound Observation",
+                  "value": {
+                    "itemId": "sound_aurora",
+                    "title": "Aurora Echoes",
+                    "type": "sound",
+                    "totalViews": 45000,
+                    "totalVideos": 480,
+                    "timestamp": "2026-10-10T14:00:00.000Z"
+                  }
+                },
+                "batchSnapshots": {
+                  "summary": "Multi-Entity Batch",
+                  "value": {
+                    "snapshots": [
+                      {
+                        "itemId": "sound_aurora",
+                        "title": "Aurora Echoes",
+                        "type": "sound",
+                        "totalViews": 45000,
+                        "totalVideos": 480,
+                        "timestamp": "2026-10-10T14:00:00.000Z"
+                      },
+                      {
+                        "itemId": "hash_cozy",
+                        "title": "#cozyvibes",
+                        "type": "hashtag",
+                        "totalViews": 12500,
+                        "totalVideos": 65,
+                        "timestamp": "2026-10-10T14:00:00.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Snapshot(s) successfully validated and persisted to circular ring store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotBatchResponse"
+                },
+                "example": {
+                  "status": "ingested",
+                  "count": 1,
+                  "timestamp": "2026-10-10T14:00:00.050Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (missing required fields, negative values, or malformed JSON).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "BAD_REQUEST",
+                  "code": "VALIDATION_FAILED",
+                  "message": "Snapshot validation failed: missing itemId or negative metric counts",
+                  "statusCode": 400,
+                  "timestamp": "2026-10-10T14:00:00.010Z",
+                  "path": "/api/v1/snapshots",
+                  "details": [
+                    {
+                      "field": "itemId",
+                      "issue": "Field 'itemId' is required and cannot be empty"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity (e.g. invalid date format or future timestamp).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trends": {
+      "get": {
+        "tags": [
+          "Trends"
+        ],
+        "summary": "Query Paginated Trends Leaderboard",
+        "description": "Retrieves paginated trend intelligence list with multi-column sorting and filtering.\nMaps to REQ-FR-02, REQ-FR-03, REQ-FR-04, REQ-FR-11, REQ-FR-14, and REQ-FR-15.\n",
+        "operationId": "getTrends",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Current page number (1-indexed).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "example": 1
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of records per page.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                25,
+                50,
+                100
+              ],
+              "default": 25
+            },
+            "example": 25
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by entity type.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sound",
+                "hashtag"
+              ]
+            },
+            "example": "sound"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by discrete lifecycle phase.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NOISE",
+                "EMERGING",
+                "VIRAL",
+                "SATURATED",
+                "DECAYING"
+              ]
+            },
+            "example": "EMERGING"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Field name to sort by.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "viralityScore",
+                "hourlyVelocity",
+                "totalViews",
+                "totalVideos",
+                "hoursToPeak"
+              ],
+              "default": "viralityScore"
+            },
+            "example": "viralityScore"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort ordering direction.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            },
+            "example": "desc"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Text substring search query matching trend title or identifier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "aurora"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered, sorted, and paginated trends catalog.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendListResponse"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "sound_aurora",
+                      "title": "Aurora Echoes",
+                      "type": "sound",
+                      "viralityScore": 78.5,
+                      "lifecycleStatus": "EMERGING",
+                      "hourlyVelocity": 240,
+                      "velocity6h": 180.5,
+                      "velocity24h": 95,
+                      "totalViews": 85000,
+                      "totalVideos": 620,
+                      "acceleration": 15.2,
+                      "tiktokUrl": "https://www.tiktok.com/search?q=Aurora%20Echoes",
+                      "opportunityLevel": "SURGING",
+                      "hoursToPeak": 4.8
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 25,
+                    "totalItems": 1,
+                    "totalPages": 1
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters (e.g. limit < 1 or unknown enum value).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "BAD_REQUEST",
+                  "code": "INVALID_QUERY_PARAMETER",
+                  "message": "Parameter 'limit' must be one of [10, 25, 50, 100]",
+                  "statusCode": 400,
+                  "timestamp": "2026-10-10T14:00:00.010Z",
+                  "path": "/api/v1/trends",
+                  "details": [
+                    {
+                      "field": "limit",
+                      "issue": "Expected allowed enum value, received -5"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trends/emerging": {
+      "get": {
+        "tags": [
+          "Trends"
+        ],
+        "summary": "Query Emerging Trends Fast-Track",
+        "description": "Specialized canonical view returning exclusively items currently in the EMERGING\nlifecycle state, sorted by descending Virality Velocity Score (VVS).\nMaps to REQ-FR-05.\n",
+        "operationId": "getEmergingTrends",
+        "responses": {
+          "200": {
+            "description": "List of pre-saturation surging trends.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrendItemSummary"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "sound_aurora",
+                    "title": "Aurora Echoes",
+                    "type": "sound",
+                    "viralityScore": 78.5,
+                    "lifecycleStatus": "EMERGING",
+                    "hourlyVelocity": 240,
+                    "velocity6h": 180.5,
+                    "velocity24h": 95,
+                    "totalViews": 85000,
+                    "totalVideos": 620,
+                    "acceleration": 15.2,
+                    "tiktokUrl": "https://www.tiktok.com/search?q=Aurora%20Echoes",
+                    "opportunityLevel": "SURGING",
+                    "hoursToPeak": 4.8
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trends/{id}": {
+      "get": {
+        "tags": [
+          "Trends"
+        ],
+        "summary": "Get Trend Item Details & Historical Telemetry",
+        "description": "Retrieves detailed metadata, direct TikTok URL, and chronological observation timeseries.\nMaps to REQ-FR-12 and REQ-FR-14.\n",
+        "operationId": "getTrendById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Unique trend item identifier (e.g. sound_aurora or hash_breakout).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "sound_aurora"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comprehensive trend entity with historical telemetry series.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendItemDetail"
+                },
+                "example": {
+                  "id": "sound_aurora",
+                  "title": "Aurora Echoes",
+                  "type": "sound",
+                  "viralityScore": 78.5,
+                  "lifecycleStatus": "EMERGING",
+                  "hourlyVelocity": 240,
+                  "velocity6h": 180.5,
+                  "velocity24h": 95,
+                  "totalViews": 85000,
+                  "totalVideos": 620,
+                  "acceleration": 15.2,
+                  "tiktokUrl": "https://www.tiktok.com/search?q=Aurora%20Echoes",
+                  "opportunityLevel": "SURGING",
+                  "hoursToPeak": 4.8,
+                  "history": [
+                    {
+                      "timestamp": "2026-10-10T12:00:00.000Z",
+                      "views": 35000,
+                      "videos": 120,
+                      "velocity": 120
+                    },
+                    {
+                      "timestamp": "2026-10-10T13:00:00.000Z",
+                      "views": 58000,
+                      "videos": 360,
+                      "velocity": 240
+                    },
+                    {
+                      "timestamp": "2026-10-10T14:00:00.000Z",
+                      "views": 85000,
+                      "videos": 620,
+                      "velocity": 260
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trend item with specified ID was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "NOT_FOUND",
+                  "code": "TREND_NOT_FOUND",
+                  "message": "Trend item with ID 'sound_unknown' does not exist in repository",
+                  "statusCode": 404,
+                  "timestamp": "2026-10-10T14:00:00.015Z",
+                  "path": "/api/v1/trends/sound_unknown",
+                  "details": []
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trends/{id}/correlations": {
+      "get": {
+        "tags": [
+          "Analytics & Forecasting"
+        ],
+        "summary": "Get Cross-Entity Correlations",
+        "description": "Retrieves co-occurring hashtags or associated audio entities for a given sound track.\nMaps to REQ-FR-06.\n",
+        "operationId": "getTrendCorrelations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Unique identifier of the audio sound.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "sound_aurora"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Co-occurring hashtag associations and cross-entity relations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrelationsResponse"
+                },
+                "example": {
+                  "itemId": "sound_aurora",
+                  "title": "Aurora Echoes",
+                  "correlatedHashtags": [
+                    "#auroravibes",
+                    "#nightcore",
+                    "#cinematic"
+                  ],
+                  "confidenceScore": 0.92
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Target trend item not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trends/{id}/forecast": {
+      "get": {
+        "tags": [
+          "Analytics & Forecasting"
+        ],
+        "summary": "Get Trajectory Forecast & Hashtag Triad",
+        "description": "Calculates mathematical trajectory projection (damped logistic S-curve or Holt impulse-response)\nand generates a 1-2-3 non-stopword hashtag recommendation triad.\nMaps to REQ-FR-11, REQ-FR-17, and REQ-FR-18.\n",
+        "operationId": "getTrendForecast",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Unique identifier of the trend item.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "sound_aurora"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Predictive trajectory analytics and curated 3-tag combo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastResponse"
+                },
+                "example": {
+                  "trendId": "sound_aurora",
+                  "model": "logistic_diffusion_scurve",
+                  "hoursToPeak": 5.2,
+                  "opportunityWindow": "4 to 7 hours",
+                  "opportunityLevel": "SURGING",
+                  "projectedVelocity6h": 310.4,
+                  "projectedVelocity24h": 195,
+                  "backtestMape": 8.4,
+                  "recommendedTriad": [
+                    {
+                      "tag": "#auroravibes",
+                      "tier": "Primary Breakout"
+                    },
+                    {
+                      "tag": "#nightcore",
+                      "tier": "Niche Context"
+                    },
+                    {
+                      "tag": "#soundtrack",
+                      "tier": "Format Momentum"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trend item not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/simulation/seed": {
+      "post": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Seed Deterministic Golden Set",
+        "description": "Resets dynamic state and populates repository with canonical reference Golden Set\n(deterministic sounds and hashtags across 24 hourly snapshots).\nMaps to REQ-FR-07 and REQ-FR-09.\n",
+        "operationId": "seedSimulation",
+        "responses": {
+          "200": {
+            "description": "Golden Set seeded successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationSeedResponse"
+                },
+                "example": {
+                  "status": "seeded",
+                  "dataset": "Golden Set v2.0",
+                  "seededItems": 10,
+                  "snapshotsCount": 240,
+                  "timestamp": "2026-10-10T14:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/simulation/step": {
+      "post": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Advance Simulation Timeline (+1 Hour)",
+        "description": "Advances simulation clock by +1 hour for all currently tracked entities,\ngenerating realistic synthetic deltas based on acceleration.\nMaps to REQ-FR-09.\n",
+        "operationId": "stepSimulation",
+        "responses": {
+          "200": {
+            "description": "Timeline advanced by discrete time-step.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationStepResponse"
+                },
+                "example": {
+                  "status": "stepped",
+                  "stepHours": 1,
+                  "updatedItems": 10,
+                  "currentSimulatedTime": "2026-10-10T15:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/simulation/inject": {
+      "post": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Inject Synthetic Anomaly / Spike Scenario",
+        "description": "Injects a custom test scenario (explosive virality spike or micro-sample noise)\nto evaluate state machine and guardrail transitions.\nMaps to REQ-FR-09.\n",
+        "operationId": "injectSimulationAnomaly",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "itemId",
+                  "scenario"
+                ],
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                    "example": "spike_test_sound"
+                  },
+                  "scenario": {
+                    "type": "string",
+                    "enum": [
+                      "VIRAL_SPIKE",
+                      "MICRO_NOISE",
+                      "SUDDEN_DECAY"
+                    ],
+                    "example": "VIRAL_SPIKE"
+                  },
+                  "customViews": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 150000
+                  },
+                  "customVideos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 1200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Anomaly scenario injected successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "injected"
+                    },
+                    "itemId": {
+                      "type": "string",
+                      "example": "spike_test_sound"
+                    },
+                    "scenario": {
+                      "type": "string",
+                      "example": "VIRAL_SPIKE"
+                    },
+                    "assignedStatus": {
+                      "type": "string",
+                      "example": "VIRAL"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid anomaly parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/simulation/reset": {
+      "post": {
+        "tags": [
+          "Simulation"
+        ],
+        "summary": "Reset Simulation State",
+        "description": "Clears in-memory volatile cache and simulation database stores.",
+        "operationId": "resetSimulation",
+        "responses": {
+          "200": {
+            "description": "State wiped successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "reset"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Simulation stores cleared"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/fetch": {
+      "post": {
+        "tags": [
+          "Ingestion"
+        ],
+        "summary": "Trigger External Feed Ingestion",
+        "description": "Fetches and normalizes trending feeds from external providers or synthetic generators.\nSupports high-scale parameter up to 2,500+ items.\nMaps to REQ-FR-10 and REQ-FR-13.\n",
+        "operationId": "fetchExternalIngestion",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "Provider adapter strategy.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "creative_center",
+                "mock",
+                "rapidapi"
+              ],
+              "default": "creative_center"
+            },
+            "example": "creative_center"
+          },
+          {
+            "name": "scale",
+            "in": "query",
+            "description": "Scale corpus count to benchmark high-throughput pipelines.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 5000,
+              "default": 100
+            },
+            "example": 1000
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ingestion job completed successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "example": "creative_center"
+                    },
+                    "ingestedCount": {
+                      "type": "integer",
+                      "example": 1000
+                    },
+                    "durationMs": {
+                      "type": "number",
+                      "example": 184.2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid provider or scale parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Unified error model conforming to RFC 7807 / RFC 9457 Problem Details standard.",
+        "required": [
+          "error",
+          "code",
+          "message",
+          "statusCode",
+          "timestamp",
+          "path"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Canonical HTTP category (e.g. BAD_REQUEST, NOT_FOUND, UNPROCESSABLE_ENTITY).",
+            "example": "BAD_REQUEST"
+          },
+          "code": {
+            "type": "string",
+            "description": "Domain-specific error code for client routing.",
+            "example": "VALIDATION_FAILED"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error description.",
+            "example": "Snapshot validation failed: missing itemId"
+          },
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status code.",
+            "example": 400
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp of the error event.",
+            "example": "2026-10-10T14:00:00.010Z"
+          },
+          "path": {
+            "type": "string",
+            "description": "Request URI path where the error occurred.",
+            "example": "/api/v1/snapshots"
+          },
+          "details": {
+            "type": "array",
+            "description": "Specific field-level validation errors or context entries.",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "issue"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "example": "totalViews"
+                },
+                "issue": {
+                  "type": "string",
+                  "example": "Expected non-negative integer >= 0, received -50"
+                }
+              }
+            }
+          }
+        }
+      },
+      "MetricSnapshot": {
+        "type": "object",
+        "description": "Immutable timestamped observation of a monitored platform artifact.",
+        "required": [
+          "itemId",
+          "totalViews",
+          "totalVideos",
+          "timestamp"
+        ],
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "Platform identifier of the audio sound or hashtag.",
+            "example": "sound_aurora"
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional human-readable display title.",
+            "example": "Aurora Echoes"
+          },
+          "type": {
+            "type": "string",
+            "description": "Entity classification.",
+            "enum": [
+              "sound",
+              "hashtag"
+            ],
+            "default": "sound",
+            "example": "sound"
+          },
+          "totalViews": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cumulative views count up to timestamp t.",
+            "example": 45000
+          },
+          "totalVideos": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cumulative video creations count up to timestamp t.",
+            "example": 480
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 observation timestamp.",
+            "example": "2026-10-10T14:00:00.000Z"
+          }
+        }
+      },
+      "SnapshotBatchRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MetricSnapshot"
+          },
+          {
+            "type": "object",
+            "required": [
+              "snapshots"
+            ],
+            "properties": {
+              "snapshots": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MetricSnapshot"
+                },
+                "minItems": 1
+              }
+            }
+          }
+        ]
+      },
+      "SnapshotBatchResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "count",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ingested"
+          },
+          "count": {
+            "type": "integer",
+            "example": 1
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-10T14:00:00.050Z"
+          }
+        }
+      },
+      "TrendItemSummary": {
+        "type": "object",
+        "description": "Summary representation of a trend for leaderboard rankings.",
+        "required": [
+          "id",
+          "title",
+          "type",
+          "viralityScore",
+          "lifecycleStatus",
+          "hourlyVelocity",
+          "totalViews",
+          "totalVideos",
+          "tiktokUrl"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "sound_aurora"
+          },
+          "title": {
+            "type": "string",
+            "example": "Aurora Echoes"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "sound",
+              "hashtag"
+            ],
+            "example": "sound"
+          },
+          "viralityScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Composite multi-window Virality Velocity Score (VVS).",
+            "example": 78.5
+          },
+          "lifecycleStatus": {
+            "type": "string",
+            "enum": [
+              "NOISE",
+              "EMERGING",
+              "VIRAL",
+              "SATURATED",
+              "DECAYING"
+            ],
+            "description": "State machine lifecycle phase.",
+            "example": "EMERGING"
+          },
+          "hourlyVelocity": {
+            "type": "number",
+            "description": "1-hour video creations velocity (videos/hr).",
+            "example": 240
+          },
+          "velocity6h": {
+            "type": "number",
+            "description": "6-hour video creations velocity (videos/hr).",
+            "example": 180.5
+          },
+          "velocity24h": {
+            "type": "number",
+            "description": "24-hour video creations velocity (videos/hr).",
+            "example": 95
+          },
+          "totalViews": {
+            "type": "integer",
+            "example": 85000
+          },
+          "totalVideos": {
+            "type": "integer",
+            "example": 620
+          },
+          "acceleration": {
+            "type": "number",
+            "description": "Rate of velocity change (second derivative).",
+            "example": 15.2
+          },
+          "tiktokUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Direct deep link to TikTok search/audio page.",
+            "example": "https://www.tiktok.com/search?q=Aurora%20Echoes"
+          },
+          "opportunityLevel": {
+            "type": "string",
+            "enum": [
+              "SURGING",
+              "PEAK",
+              "PLATEAU",
+              "UNKNOWN"
+            ],
+            "example": "SURGING"
+          },
+          "hoursToPeak": {
+            "type": "number",
+            "description": "Estimated hours before saturation ceiling is reached.",
+            "example": 4.8
+          }
+        }
+      },
+      "TrendListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendItemSummary"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "required": [
+              "page",
+              "limit",
+              "totalItems",
+              "totalPages"
+            ],
+            "properties": {
+              "page": {
+                "type": "integer",
+                "example": 1
+              },
+              "limit": {
+                "type": "integer",
+                "example": 25
+              },
+              "totalItems": {
+                "type": "integer",
+                "example": 120
+              },
+              "totalPages": {
+                "type": "integer",
+                "example": 5
+              }
+            }
+          }
+        }
+      },
+      "TrendHistoryPoint": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "views",
+          "videos",
+          "velocity"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-10T14:00:00.000Z"
+          },
+          "views": {
+            "type": "integer",
+            "example": 85000
+          },
+          "videos": {
+            "type": "integer",
+            "example": 620
+          },
+          "velocity": {
+            "type": "number",
+            "example": 240
+          }
+        }
+      },
+      "TrendItemDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TrendItemSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "history": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrendHistoryPoint"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CorrelationsResponse": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "correlatedHashtags"
+        ],
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "example": "sound_aurora"
+          },
+          "title": {
+            "type": "string",
+            "example": "Aurora Echoes"
+          },
+          "correlatedHashtags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "#auroravibes",
+              "#nightcore",
+              "#cinematic"
+            ]
+          },
+          "confidenceScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.92
+          }
+        }
+      },
+      "TriadTierItem": {
+        "type": "object",
+        "required": [
+          "tag",
+          "tier"
+        ],
+        "properties": {
+          "tag": {
+            "type": "string",
+            "example": "#auroravibes"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "Primary Breakout",
+              "Niche Context",
+              "Format Momentum"
+            ],
+            "example": "Primary Breakout"
+          }
+        }
+      },
+      "ForecastResponse": {
+        "type": "object",
+        "required": [
+          "trendId",
+          "model",
+          "hoursToPeak",
+          "opportunityLevel",
+          "recommendedTriad"
+        ],
+        "properties": {
+          "trendId": {
+            "type": "string",
+            "example": "sound_aurora"
+          },
+          "model": {
+            "type": "string",
+            "example": "logistic_diffusion_scurve"
+          },
+          "hoursToPeak": {
+            "type": "number",
+            "example": 5.2
+          },
+          "opportunityWindow": {
+            "type": "string",
+            "example": "4 to 7 hours"
+          },
+          "opportunityLevel": {
+            "type": "string",
+            "enum": [
+              "SURGING",
+              "PEAK",
+              "PLATEAU",
+              "UNKNOWN"
+            ],
+            "example": "SURGING"
+          },
+          "projectedVelocity6h": {
+            "type": "number",
+            "example": 310.4
+          },
+          "projectedVelocity24h": {
+            "type": "number",
+            "example": 195
+          },
+          "backtestMape": {
+            "type": "number",
+            "description": "Mean Absolute Percentage Error on retrospective backtest.",
+            "example": 8.4
+          },
+          "recommendedTriad": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TriadTierItem"
+            }
+          }
+        }
+      },
+      "SimulationSeedResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "dataset",
+          "seededItems",
+          "snapshotsCount",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "seeded"
+          },
+          "dataset": {
+            "type": "string",
+            "example": "Golden Set v2.0"
+          },
+          "seededItems": {
+            "type": "integer",
+            "example": 10
+          },
+          "snapshotsCount": {
+            "type": "integer",
+            "example": 240
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-10T14:00:00.000Z"
+          }
+        }
+      },
+      "SimulationStepResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "stepHours",
+          "updatedItems",
+          "currentSimulatedTime"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "stepped"
+          },
+          "stepHours": {
+            "type": "integer",
+            "example": 1
+          },
+          "updatedItems": {
+            "type": "integer",
+            "example": 10
+          },
+          "currentSimulatedTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-10T15:00:00.000Z"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "version",
+          "specification",
+          "uptimeSeconds",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string",
+            "example": "TrendTok Analytics"
+          },
+          "version": {
+            "type": "string",
+            "example": "2.3.0"
+          },
+          "specification": {
+            "type": "string",
+            "example": "SRS-TRENDTOK-2026-V2"
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "example": 120.5
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-10T14:00:00.000Z"
+          }
+        }
+      }
+    }
+  }
+}

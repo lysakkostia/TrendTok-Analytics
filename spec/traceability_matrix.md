@@ -47,11 +47,37 @@ In accordance with **Specification-Driven Development (SDD)**, every production 
 
 ---
 
-## 3. Coverage Analysis Summary
+---
+
+## 3. REST API Contract & OpenAPI Operation Traceability (Lab 4 Baseline)
+
+| SRS Requirement | HTTP Verb | Canonical REST URI | OpenAPI operationId | Contract Schema (Request / Response) | Mock Verification Tests | Gate Status |
+|---|:---:|---|---|---|---|:---:|
+| `REQ-FR-01`<br>`REQ-NFR-03` | `POST` | `/api/v1/snapshots` | `ingestSnapshots` | `SnapshotBatchRequest`<br>`SnapshotBatchResponse` | `POS-02`, `POS-03`<br>`NEG-01`, `NEG-02`, `NEG-03` | **API-GATE-01 (PASS)** |
+| `REQ-FR-02`<br>`REQ-FR-03`<br>`REQ-FR-15` | `GET` | `/api/v1/trends` | `getTrends` | Query Params (`page`, `limit`, `sort`, `status`)<br>`TrendListResponse` | `POS-04`<br>`NEG-05`, `NEG-06` | **API-GATE-01 (PASS)** |
+| `REQ-FR-05` | `GET` | `/api/v1/trends/emerging` | `getEmergingTrends` | `Array<TrendItemSummary>` | `POS-05` | **API-GATE-01 (PASS)** |
+| `REQ-FR-12`<br>`REQ-FR-14` | `GET` | `/api/v1/trends/{id}` | `getTrendById` | Path Param (`id`)<br>`TrendItemDetail` | `POS-06`<br>`NEG-04` | **API-GATE-01 (PASS)** |
+| `REQ-FR-06` | `GET` | `/api/v1/trends/{id}/correlations` | `getTrendCorrelations` | Path Param (`id`)<br>`CorrelationsResponse` | `POS-07`<br>`NEG-04` | **API-GATE-01 (PASS)** |
+| `REQ-FR-11`<br>`REQ-FR-17`<br>`REQ-FR-18` | `GET` | `/api/v1/trends/{id}/forecast` | `getTrendForecast` | Path Param (`id`)<br>`ForecastResponse` | `POS-08`<br>`NEG-04` | **API-GATE-01 (PASS)** |
+| `REQ-FR-07`<br>`REQ-FR-09` | `POST` | `/api/v1/simulation/seed` | `seedSimulation` | `SimulationSeedResponse` | `POS-09` | **API-GATE-01 (PASS)** |
+| `REQ-FR-09` | `POST` | `/api/v1/simulation/step` | `stepSimulation` | `SimulationStepResponse` | `POS-10` | **API-GATE-01 (PASS)** |
+| `REQ-FR-09` | `POST` | `/api/v1/simulation/inject` | `injectSimulationAnomaly` | Anomaly Object<br>Status Confirmation | Contract Validation | **API-GATE-01 (PASS)** |
+| `REQ-FR-09` | `POST` | `/api/v1/simulation/reset` | `resetSimulation` | Status Confirmation | Contract Validation | **API-GATE-01 (PASS)** |
+| `REQ-FR-10`<br>`REQ-FR-13` | `POST` | `/api/v1/ingest/fetch` | `fetchExternalIngestion` | Query Params (`scale`, `provider`)<br>Ingestion Summary | `POS-11` | **API-GATE-01 (PASS)** |
+| `REQ-NFR-01` | `GET` | `/api/v1/health` | `getHealth` | `HealthResponse` | `POS-01` | **API-GATE-01 (PASS)** |
+| `REQ-NFR-03` | `*` | *All Error Responses* | *All Operations* | `ErrorResponse` (RFC 7807/9457) | `NEG-01` .. `NEG-08` | **API-GATE-01 (PASS)** |
+
+---
+
+## 4. Coverage Analysis Summary
 
 * **Total Functional Requirements (FR):** 18
 * **Total Non-Functional Requirements (NFR):** 5
-* **Requirements with Automated Test Coverage:** 23 / 23 (100% targeted)
-* **Requirements with Bound Tracking Tickets:** 23 / 23 (100% traceable)
+* **REST API Endpoints Defined in OpenAPI:** 12 paths, 12 operations
+* **Contract Schema Definitions:** 14 component schemas
+* **OpenAPI Automatic Validation:** PASS (0 errors, 0 warnings)
+* **Mock Verification Tests:** 20 / 20 PASS (100% verified against OpenAPI mock)
+* **API-GATE Status:** APPROVED (Verdict: GO)
 * **Orphaned Requirements:** 0
-* **Unjustified Code Modules:** 0
+* **Unjustified Endpoints:** 0
+
