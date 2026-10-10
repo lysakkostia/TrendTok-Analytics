@@ -35,3 +35,8 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 !data/.gitkeep
+
+# Generated spec document binaries
+spec/*.docx
+spec/*.pdf
+
