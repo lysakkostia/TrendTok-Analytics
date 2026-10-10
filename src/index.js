@@ -104,6 +104,13 @@ export function createServer() {
     const url = new URL(req.url, `http://${host}`);
     const method = req.method;
 
+    // Support /api/v1 transparently as OpenAPI standard versioned prefix
+    if (url.pathname.startsWith("/api/v1/")) {
+      url.pathname = url.pathname.replace("/api/v1/", "/api/");
+    } else if (url.pathname === "/api/v1") {
+      url.pathname = "/api";
+    }
+
     try {
       // ==========================================
       // REQ-FR-08: Web Dashboard Static Routing
